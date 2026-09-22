@@ -10,6 +10,15 @@ import {
   signOutDreamSession,
 } from "@/lib/dream-supabase"
 import {
+  acceptInvite as acceptInviteLink,
+  ensureDreamCode,
+  loadPeople,
+  loadTonightDream,
+  lookupInvite,
+  revealTonightDream,
+  sendDreamItem,
+} from "@/lib/dream-social"
+import {
   iosWebContext,
   localTimeZone,
   onboardingNotiHint,
@@ -73,7 +82,6 @@ export function DreamAboutMeApp() {
   const [installCtx, setInstallCtx] = useState<IosWebContext | null>(null)
   const [gallery, setGallery] = useState<GalleryItem[]>([])
   const [people, setPeople] = useState<Person[]>([])
-  const [pending, setPending] = useState<PendingDream | null>(null)
   const [streak, setStreak] = useState(0)
   const [addMode, setAddMode] = useState<AddMode>(null)
   const [draftQuote, setDraftQuote] = useState("")
@@ -83,7 +91,10 @@ export function DreamAboutMeApp() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [inviteLink, setInviteLink] = useState("dreamabt.me")
   const [copied, setCopied] = useState(false)
-  const [inviteName, setInviteName] = useState("macy")
+  const [inviteName, setInviteName] = useState("")
+  const [inviteFromId, setInviteFromId] = useState<string | null>(null)
+  const [dreamCode, setDreamCode] = useState<string | null>(null)
+  const [userId, setUserId] = useState<string | null>(null)
   const [revealed, setRevealed] = useState<PendingDream | null>(null)
 
   useEffect(() => {
@@ -100,8 +111,9 @@ export function DreamAboutMeApp() {
   }, [])
 
   useEffect(() => {
-    setInviteLink(`${window.location.origin}/?invite=1`)
-  }, [])
+    const code = dreamCode || "1"
+    setInviteLink(`${window.location.origin}/?invite=${code}`)
+  }, [dreamCode])
 
   useEffect(() => {
     const ctx = iosWebContext()
@@ -119,12 +131,18 @@ export function DreamAboutMeApp() {
     const invite = router.query.invite
     const receive = router.query.receive
     void restoreDreamSession()
-      .then((profile) => {
+      .then(async (profile) => {
         if (cancelled) return
         if (profile) {
           setName(profile.name)
+          setUserId(profile.id)
           if (profile.bedtime) setBedtime(profile.bedtime)
           setStreak(profile.streak)
+          const code = profile.dreamCode || (await ensureDreamCode())
+          if (code) setDreamCode(code)
+          void loadPeople().then((next) => {
+            if (!cancelled) setPeople(next)
+          })
           if (typeof Notification !== "undefined" && Notification.permission === "granted") {
             setNotiLabel("notis on")
             void syncPushSubscription()
@@ -132,8 +150,14 @@ export function DreamAboutMeApp() {
         }
         if (invite != null) {
           const raw = Array.isArray(invite) ? invite[0] : invite
-          setInviteName(raw && raw !== "1" ? raw : "macy")
-          setScreen("accept")
+          const found = raw ? await lookupInvite(raw) : null
+          if (found && found.id !== profile?.id) {
+            setInviteName(found.name)
+            setInviteFromId(found.id)
+            setScreen("accept")
+          } else if (profile) {
+            setScreen("home")
+          }
         } else if (receive != null && profile) {
           setScreen("bedtime")
         } else if (profile) {
@@ -171,7 +195,6 @@ export function DreamAboutMeApp() {
     setNotiLabel("turn on notis")
     setGallery([])
     setPeople([])
-    setPending(null)
     setStreak(0)
     setAddMode(null)
     setDraftQuote("")
@@ -179,6 +202,10 @@ export function DreamAboutMeApp() {
     setSendTo(null)
     setSelectedId(null)
     setRevealed(null)
+    setInviteFromId(null)
+    setInviteName("")
+    setDreamCode(null)
+    setUserId(null)
     setScreen("landing")
   }
 
@@ -215,10 +242,15 @@ export function DreamAboutMeApp() {
       return
     }
     setName(result.profile.name)
+    setUserId(result.profile.id)
     if (result.profile.bedtime) setBedtime(result.profile.bedtime)
     setStreak(result.profile.streak)
+    const code = result.profile.dreamCode || (await ensureDreamCode())
+    if (code) setDreamCode(code)
+    void loadPeople().then(setPeople)
     setPrivateKey([])
-    setScreen(authMode === "new" ? "onboarding" : "home")
+    if (inviteFromId) setScreen("accept")
+    else setScreen(authMode === "new" ? "onboarding" : "home")
   }
 
   async function syncPushSubscription() {
@@ -260,6 +292,7 @@ export function DreamAboutMeApp() {
       await showDreamNotification(registration)
     }
     setNotiLabel("notis on")
+    void persistDreamProfile({ timezone: localTimeZone() })
   }
 
   function openImagePicker(target: "setup" | "pick") {
@@ -297,12 +330,13 @@ export function DreamAboutMeApp() {
     if (selectedId === item.id) setSelectedId(null)
   }
 
-  function sendDream() {
+  async function sendDream() {
     const item = gallery.find((g) => g.id === selectedId)
-    if (!item || !sendTo) return
-    if (sendTo === "me") {
-      setPending({ item })
-    } else {
+    if (!item || !sendTo || !userId) return
+    const recipientId = sendTo === "me" ? userId : sendTo.id
+    const ok = await sendDreamItem(item, recipientId)
+    if (!ok) return
+    if (sendTo !== "me") {
       setPeople((prev) =>
         prev.map((p) => (p.id === sendTo.id ? { ...p, sentStatus: "waiting" } : p)),
       )
@@ -310,34 +344,43 @@ export function DreamAboutMeApp() {
     setScreen("sent")
   }
 
-  function completeRitual() {
-    setRevealed(pending)
-    if (pending) {
+  async function completeRitual() {
+    const tonight = await loadTonightDream()
+    if (!tonight) {
+      setRevealed(null)
+      setScreen("reveal")
+      return
+    }
+    setRevealed({ item: tonight.item, fromName: tonight.fromName })
+    if (!tonight.revealed) {
+      await revealTonightDream(tonight.id)
       setStreak((n) => {
         const next = n + 1
         void persistDreamProfile({ streak: next })
         return next
       })
-      setPending(null)
     }
     setScreen("reveal")
   }
 
-  function acceptPerson(person: Person) {
-    setPeople((prev) =>
-      prev.map((p) => (p.id === person.id ? { ...p, status: "connected" } : p)),
-    )
+  async function acceptPerson(person: Person) {
+    const ok = await acceptInviteLink(person.id)
+    if (!ok) return
+    setPeople(await loadPeople())
   }
 
-  function acceptInvite() {
-    setPeople((prev) => {
-      if (prev.some((p) => p.name === inviteName)) {
-        return prev.map((p) =>
-          p.name === inviteName ? { ...p, status: "connected" } : p,
-        )
-      }
-      return [...prev, { id: newId(), name: inviteName, status: "connected" }]
-    })
+  async function acceptInvite() {
+    if (!inviteFromId) {
+      setScreen(userId ? "home" : "landing")
+      return
+    }
+    if (!userId) {
+      startNew()
+      return
+    }
+    await acceptInviteLink(inviteFromId)
+    setPeople(await loadPeople())
+    setInviteFromId(null)
     setScreen("home")
   }
 
@@ -438,7 +481,7 @@ export function DreamAboutMeApp() {
           onContinue={() => {
             void (async () => {
               await requestNotis()
-              void persistDreamProfile({ bedtime })
+              void persistDreamProfile({ bedtime, timezone: localTimeZone() })
               setScreen("gallery-setup")
             })()
           }}
@@ -474,7 +517,12 @@ export function DreamAboutMeApp() {
         <HomeScreen
           streak={streak}
           notiLabel={notiLabel}
-          onSend={() => setScreen("choose-person")}
+          onSetMine={() => {
+            setSendTo("me")
+            setSelectedId(null)
+            setScreen("pick")
+          }}
+          onSendThem={() => setScreen("choose-person")}
           onReceive={() => setScreen("bedtime")}
           onNotis={requestNotis}
         />
@@ -503,8 +551,8 @@ export function DreamAboutMeApp() {
       {screen === "accept" && (
         <AcceptInviteScreen
           name={inviteName}
-          onAccept={acceptInvite}
-          onSkip={() => setScreen("landing")}
+          onAccept={() => void acceptInvite()}
+          onSkip={() => setScreen(userId ? "home" : "landing")}
         />
       )}
       {screen === "pick" && (
@@ -515,7 +563,8 @@ export function DreamAboutMeApp() {
           quote={draftQuote}
           video={draftVideo}
           canSend={Boolean(selected)}
-          onBack={() => setScreen("choose-person")}
+          sendLabel={sendTo === "me" ? "set dream" : "send dream"}
+          onBack={() => setScreen(sendTo === "me" ? "home" : "choose-person")}
           onSelect={(item) => setSelectedId(item.id)}
           onDelete={deleteItem}
           onAddImage={() => openImagePicker("pick")}
@@ -538,7 +587,7 @@ export function DreamAboutMeApp() {
           onSend={sendDream}
         />
       )}
-      {screen === "sent" && <DreamSentScreen onDone={() => setScreen("home")} />}
+      {screen === "sent" && <DreamSentScreen mine={sendTo === "me"} onDone={() => setScreen("home")} />}
       {screen === "bedtime" && (
         <BedtimeGateScreen onYes={completeRitual} onNotYet={() => setScreen("home")} />
       )}

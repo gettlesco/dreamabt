@@ -174,3 +174,32 @@
   color: var(--dream-pink-dim);
   text-align: right;
 }
+
+.shell.preview {
+  min-height: 0;
+  width: 22.5rem;
+  max-width: 100%;
+  height: 44rem;
+  overflow: auto;
+  scrollbar-width: none;
+}
+
+.shell.preview::-webkit-scrollbar {
+  display: none;
+}
+
+.shell.preview .frame {
+  min-height: 100%;
+}
+
+.shell.preview .box {
+  max-width: 100%;
+}
+
+.shell.copyFrame {
+  min-height: 0;
+  width: 22.5rem;
+  max-width: 100%;
+  height: auto;
+  padding: 1.15rem 1.2rem;
+}

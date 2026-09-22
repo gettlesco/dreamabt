@@ -119,14 +119,16 @@ export async function signOutDreamSession(): Promise<void> {
 export async function persistDreamProfile(patch: {
   bedtime?: string
   streak?: number
+  timezone?: string
 }): Promise<void> {
   const supabase = getDreamBrowserClient()
   if (!supabase) return
   const { data: userData } = await supabase.auth.getUser()
   if (!userData.user) return
-  const next: { bedtime?: string; streak?: number } = {}
+  const next: { bedtime?: string; streak?: number; timezone?: string } = {}
   if (patch.bedtime !== undefined) next.bedtime = patch.bedtime
   if (patch.streak !== undefined) next.streak = patch.streak
+  if (patch.timezone !== undefined) next.timezone = patch.timezone
   if (Object.keys(next).length === 0) return
   await supabase.from("profiles").update(next).eq("id", userData.user.id)
 }

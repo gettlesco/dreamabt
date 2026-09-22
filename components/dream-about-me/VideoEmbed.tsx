@@ -29,9 +29,18 @@ export function VideoEmbed({ url, variant }: VideoEmbedProps) {
 
   if (parsed.embedSrc) {
     return (
-      <a href={parsed.url} target="_blank" rel="noreferrer">
-        {parsed.label}
-      </a>
+      <div>
+        <iframe
+          src={parsed.embedSrc}
+          title={parsed.label}
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowFullScreen
+          style={{ width: "100%", aspectRatio: "9 / 16", border: 0, background: "var(--dream-forest)" }}
+        />
+        <a href={parsed.url} target="_blank" rel="noreferrer">
+          {parsed.label}
+        </a>
+      </div>
     )
   }
 

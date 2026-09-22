@@ -1,0 +1,280 @@
+.page {
+  min-height: 100dvh;
+  background: #241016;
+  color: #f2b8c4;
+  font-family: "IM Fell French Canon", "Iowan Old Style", Georgia, serif;
+  padding: 1.5rem 1.25rem 4rem;
+}
+
+.intro {
+  max-width: 56rem;
+  margin-bottom: 2.25rem;
+}
+
+.intro h1 {
+  font-size: 1.7rem;
+  font-weight: 400;
+  margin: 0 0 0.4rem;
+}
+
+.intro p {
+  margin: 0;
+  color: rgba(242, 184, 196, 0.48);
+  font-size: 1rem;
+  line-height: 1.4;
+}
+
+.nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem 1.1rem;
+  margin: 1.1rem 0 0;
+  font-size: 0.95rem;
+}
+
+.nav a {
+  color: rgba(242, 184, 196, 0.5);
+  text-decoration: none;
+}
+
+.nav a:hover {
+  color: #f2b8c4;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 3.25rem;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: minmax(18rem, 22.5rem) minmax(16rem, 1fr);
+  gap: 1.25rem 1.5rem;
+  align-items: stretch;
+  max-width: 56rem;
+  scroll-margin-top: 1.25rem;
+}
+
+@media (max-width: 720px) {
+  .row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.meta {
+  display: flex;
+  flex-direction: column;
+  min-height: 16rem;
+}
+
+.meta h2 {
+  font-size: 1.15rem;
+  font-weight: 400;
+  margin: 0 0 0.7rem;
+}
+
+.notes {
+  flex: 1;
+  width: 100%;
+  min-height: 16rem;
+  box-sizing: border-box;
+  background: transparent;
+  border: 1px solid rgba(242, 184, 196, 0.22);
+  color: #f2b8c4;
+  font: inherit;
+  font-size: 1.05rem;
+  line-height: 1.45;
+  padding: 0.85rem 1rem;
+  resize: vertical;
+  outline: none;
+}
+
+.notes::placeholder {
+  color: rgba(242, 184, 196, 0.36);
+}
+
+.notes:focus {
+  border-color: rgba(242, 184, 196, 0.5);
+}
+
+.hint {
+  margin: 0.55rem 0 0;
+  font-size: 0.8rem;
+  color: rgba(242, 184, 196, 0.32);
+}
+
+.chapter {
+  max-width: 56rem;
+  margin: 3.5rem 0 0;
+  scroll-margin-top: 1.25rem;
+}
+
+.chapter h1 {
+  font-size: 1.7rem;
+  font-weight: 400;
+  margin: 0 0 0.4rem;
+}
+
+.chapter p {
+  margin: 0 0 1.75rem;
+  color: rgba(242, 184, 196, 0.48);
+  font-size: 1rem;
+  line-height: 1.4;
+}
+
+.copyRow {
+  display: grid;
+  grid-template-columns: minmax(18rem, 22.5rem) minmax(16rem, 1fr);
+  gap: 1.25rem 1.5rem;
+  align-items: stretch;
+  max-width: 56rem;
+  scroll-margin-top: 1.25rem;
+}
+
+@media (max-width: 720px) {
+  .copyRow {
+    grid-template-columns: 1fr;
+  }
+}
+
+.metaShort {
+  min-height: 0;
+}
+
+.notesShort {
+  min-height: 8rem;
+}
+
+.where {
+  margin: 0 0 0.55rem;
+  font-size: 0.85rem;
+  color: rgba(242, 184, 196, 0.4);
+  line-height: 1.35;
+}
+
+.appleNoti {
+  width: 22.5rem;
+  max-width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 24px;
+  background: rgba(44, 44, 46, 0.82);
+  -webkit-backdrop-filter: blur(40px) saturate(1.5);
+  backdrop-filter: blur(40px) saturate(1.5);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.38);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+  color: #fff;
+  -webkit-font-smoothing: antialiased;
+}
+
+.appleIcon {
+  width: 38px;
+  height: 38px;
+  border-radius: 9px;
+  flex-shrink: 0;
+  object-fit: cover;
+}
+
+.appleMain {
+  flex: 1;
+  min-width: 0;
+}
+
+.appleTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.75rem;
+}
+
+.appleApp,
+.appleNow {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: rgba(255, 255, 255, 0.52);
+}
+
+.appleTitle {
+  margin: 1px 0 0;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.022em;
+  line-height: 1.25;
+}
+
+.appleBody {
+  margin: 1px 0 0;
+  font-size: 15px;
+  font-weight: 400;
+  letter-spacing: -0.022em;
+  line-height: 1.25;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.springboard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: 22.5rem;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 1.6rem 1rem;
+  border-radius: 18px;
+  background: #1c0a0f;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+}
+
+.springIcon {
+  width: 60px;
+  height: 60px;
+  border-radius: 13.4px;
+  object-fit: cover;
+}
+
+.springName {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.2;
+  color: #fff;
+  text-align: center;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+}
+
+.osExplain {
+  width: 22.5rem;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 0.9rem 1rem;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.05);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+}
+
+.osKicker {
+  margin: 0 0 0.4rem;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(242, 184, 196, 0.42);
+}
+
+.osBody {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.35;
+  color: #f2b8c4;
+}
+
+.osExtra {
+  margin: 0.65rem 0 0;
+  font-size: 13px;
+  color: rgba(242, 184, 196, 0.55);
+}

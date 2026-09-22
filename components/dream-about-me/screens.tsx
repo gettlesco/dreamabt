@@ -75,12 +75,14 @@ export function NameScreen({
   onName,
   onContinue,
   onBack,
+  autoFocus = true,
 }: {
   name: string
   error?: string
   onName: (value: string) => void
   onContinue: () => void
   onBack: () => void
+  autoFocus?: boolean
 }) {
   return (
     <Screen>
@@ -95,7 +97,7 @@ export function NameScreen({
         onKeyDown={(e) => {
           if (e.key === "Enter" && name.trim()) onContinue()
         }}
-        autoFocus
+        autoFocus={autoFocus}
         autoComplete="off"
         autoCorrect="off"
         autoCapitalize="off"
@@ -368,13 +370,15 @@ function GalleryLine({ item }: { item: GalleryItem }) {
 export function HomeScreen({
   streak,
   notiLabel,
-  onSend,
+  onSetMine,
+  onSendThem,
   onReceive,
   onNotis,
 }: {
   streak: number
   notiLabel?: string
-  onSend: () => void
+  onSetMine: () => void
+  onSendThem: () => void
   onReceive: () => void
   onNotis?: () => void
 }) {
@@ -383,7 +387,8 @@ export function HomeScreen({
   return (
     <Screen>
       <p>dream about me</p>
-      <TextBtn onClick={onSend}>send a dream</TextBtn>
+      <TextBtn onClick={onSetMine}>set my dream</TextBtn>
+      <TextBtn onClick={onSendThem}>send them a dream</TextBtn>
       <TextBtn onClick={onReceive}>receive a dream</TextBtn>
       {showNotis && (
         <TextBtn dim onClick={onNotis}>
@@ -412,7 +417,7 @@ export function ChoosePersonScreen({
 }: {
   people: Person[]
   onBack: () => void
-  onPick: (person: Person | "me") => void
+  onPick: (person: Person) => void
   onInvite: () => void
   onAccept: (person: Person) => void
 }) {
@@ -425,7 +430,6 @@ export function ChoosePersonScreen({
         back
       </TextBtn>
       <h1>who is it for?</h1>
-      <TextBtn onClick={() => onPick("me")}>me</TextBtn>
       {connected.map((person) => (
         <div key={person.id}>
           <TextBtn onClick={() => onPick(person)}>{person.name}</TextBtn>
@@ -509,6 +513,7 @@ export function GalleryPickScreen({
   quote,
   video,
   canSend,
+  sendLabel = "send dream",
   onBack,
   onSelect,
   onDelete,
@@ -527,6 +532,7 @@ export function GalleryPickScreen({
   quote: string
   video: string
   canSend: boolean
+  sendLabel?: string
   onBack: () => void
   onSelect: (item: GalleryItem) => void
   onDelete: (item: GalleryItem) => void
@@ -576,7 +582,7 @@ export function GalleryPickScreen({
           <TextBtn onClick={onChooseQuote}>add a quote</TextBtn>
           <TextBtn onClick={onChooseVideo}>add a video link</TextBtn>
           <TextBtn forest onClick={onSend} disabled={!canSend}>
-            send dream
+            {sendLabel}
           </TextBtn>
         </>
       )}
@@ -621,11 +627,19 @@ function GalleryTile({
   )
 }
 
-export function DreamSentScreen({ onDone }: { onDone: () => void }) {
+export function DreamSentScreen({
+  onDone,
+  mine,
+}: {
+  onDone: () => void
+  mine?: boolean
+}) {
   return (
     <Screen>
-      <h1>dream sent</h1>
-      <p style={{ color: "var(--dream-pink-dim)" }}>they won&apos;t see it until they go to bed.</p>
+      <h1>{mine ? "dream set" : "dream sent"}</h1>
+      <p style={{ color: "var(--dream-pink-dim)" }}>
+        {mine ? "you won't see it until you go to bed." : "they won't see it until they go to bed."}
+      </p>
       <TextBtn dim onClick={onDone}>
         okay
       </TextBtn>

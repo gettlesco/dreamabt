@@ -58,10 +58,32 @@ export async function sendDreamPush(
   )
 }
 
+export async function expireDreams() {
+  const supabase = serviceClient()
+  if (!supabase) return 0
+  const { data } = await supabase
+    .from("dreams")
+    .select("id, image_path, thumb_path")
+    .lte("expires_at", new Date().toISOString())
+  const rows = data || []
+  const paths = rows
+    .flatMap((row) => [row.image_path, row.thumb_path])
+    .filter((path): path is string => Boolean(path))
+  if (paths.length) await supabase.storage.from("dreams").remove(paths)
+  if (rows.length) {
+    await supabase.from("dreams").delete().in(
+      "id",
+      rows.map((row) => row.id),
+    )
+  }
+  return rows.length
+}
+
 export async function tickDreamPushes(windowMinutes = 15) {
+  const expired = await expireDreams()
   const supabase = serviceClient()
   if (!supabase || !applyVapid()) {
-    return { ok: false as const, sent: 0, skipped: 0, error: "push is not configured" }
+    return { ok: false as const, sent: 0, skipped: 0, expired, error: "push is not configured" }
   }
 
   const { data, error } = await supabase
@@ -69,22 +91,36 @@ export async function tickDreamPushes(windowMinutes = 15) {
     .select("id, user_id, endpoint, p256dh, auth, timezone, last_notified_on")
 
   if (error) {
-    return { ok: false as const, sent: 0, skipped: 0, error: error.message }
+    return { ok: false as const, sent: 0, skipped: 0, expired, error: error.message }
   }
 
   const rows = (data || []) as PushRow[]
   const userIds = [...new Set(rows.map((row) => row.user_id))]
   const bedtimes = new Map<string, string | null>()
+  const waiting = new Set<string>()
   if (userIds.length) {
-    const profiles = await supabase.from("profiles").select("id, bedtime").in("id", userIds)
+    const profiles = await supabase.from("profiles").select("id, bedtime, timezone").in("id", userIds)
     for (const profile of profiles.data || []) {
       bedtimes.set(profile.id as string, (profile.bedtime as string | null) ?? null)
+    }
+    const { data: dreams } = await supabase
+      .from("dreams")
+      .select("recipient_id, night_date, revealed_at, expires_at")
+      .in("recipient_id", userIds)
+      .is("revealed_at", null)
+      .gt("expires_at", new Date().toISOString())
+    for (const dream of dreams || []) {
+      waiting.add(dream.recipient_id as string)
     }
   }
 
   let sent = 0
   let skipped = 0
   for (const row of rows) {
+    if (!waiting.has(row.user_id)) {
+      skipped += 1
+      continue
+    }
     const timeZone = row.timezone || "UTC"
     const { due, dateKey } = bedtimeDue(bedtimes.get(row.user_id) ?? null, timeZone, windowMinutes)
     if (!due || row.last_notified_on === dateKey) {
@@ -110,5 +146,5 @@ export async function tickDreamPushes(windowMinutes = 15) {
     }
   }
 
-  return { ok: true as const, sent, skipped }
+  return { ok: true as const, sent, skipped, expired }
 }

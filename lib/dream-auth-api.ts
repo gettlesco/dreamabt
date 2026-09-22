@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto"
 import { NextResponse } from "next/server"
 import { readProfileRow, type DreamProfile } from "@/lib/dream-auth"
 import {
@@ -47,7 +48,18 @@ async function loadOrCreateProfile(
     .select("id, name, name_normalized, bedtime, streak, dream_code")
     .eq("id", userId)
     .maybeSingle()
-  if (existing.data) return existing.data as ProfileRow
+  if (existing.data) {
+    const row = existing.data as ProfileRow
+    if (row.dream_code) return row
+    const code = newDreamCode()
+    const updated = await supabase
+      .from("profiles")
+      .update({ dream_code: code })
+      .eq("id", userId)
+      .select("id, name, name_normalized, bedtime, streak, dream_code")
+      .single()
+    return (updated.data as ProfileRow) || row
+  }
   const inserted = await supabase
     .from("profiles")
     .insert({
@@ -56,11 +68,17 @@ async function loadOrCreateProfile(
       name_normalized: nameNormalized,
       bedtime: DEFAULT_BEDTIME,
       streak: 0,
+      dream_code: newDreamCode(),
     })
     .select("id, name, name_normalized, bedtime, streak, dream_code")
     .single()
   if (inserted.error || !inserted.data) return null
   return inserted.data as ProfileRow
+}
+
+function newDreamCode() {
+  const alphabet = "abcdefghijklmnopqrstuvwxyz23456789"
+  return [...randomBytes(8)].map((b) => alphabet[b % alphabet.length]).join("")
 }
 
 export async function handleDreamAuth(request: Request, action: DreamAuthAction) {
