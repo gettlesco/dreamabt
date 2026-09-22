@@ -11,6 +11,34 @@ export function parseBedtimeLabel(label: string): { hour: number; minute: number
   return { hour, minute }
 }
 
+/** Dream night rolls at 4:47 AM in the recipient's local timezone. */
+export const DREAM_NIGHT_RESET_MINUTES = 4 * 60 + 47
+
+export function isValidTimeZone(timeZone: string): boolean {
+  try {
+    Intl.DateTimeFormat("en-US", { timeZone }).format()
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Calendar date of the dream night containing `at` in `timeZone`.
+ * Before 4:47 AM local, this is still the previous calendar date.
+ * The day boundary is calendar arithmetic in that zone, so DST shifts do not move the reset.
+ */
+export function dreamNightDate(timeZone: string, at = new Date()): string {
+  const clock = zonedClock(timeZone, at)
+  if (clock.minutes >= DREAM_NIGHT_RESET_MINUTES) return clock.dateKey
+  const prior = new Date(Date.UTC(clock.year, clock.month - 1, clock.day))
+  prior.setUTCDate(prior.getUTCDate() - 1)
+  const year = prior.getUTCFullYear()
+  const month = prior.getUTCMonth() + 1
+  const day = prior.getUTCDate()
+  return `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`
+}
+
 export function zonedClock(timeZone: string, at = new Date()) {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone,

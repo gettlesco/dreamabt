@@ -245,6 +245,7 @@ export function AddFields({
   mode,
   quote,
   video,
+  error,
   onQuote,
   onVideo,
   onSave,
@@ -253,6 +254,7 @@ export function AddFields({
   mode: "quote" | "video"
   quote: string
   video: string
+  error?: string
   onQuote: (value: string) => void
   onVideo: (value: string) => void
   onSave: () => void
@@ -280,6 +282,7 @@ export function AddFields({
           autoCorrect="off"
         />
       )}
+      {error && <p style={{ color: "var(--dream-pink-dim)" }}>{error}</p>}
       <TextBtn dim onClick={onCancel}>
         nevermind
       </TextBtn>
@@ -301,6 +304,7 @@ export function GallerySetupScreen({
   onChooseQuote,
   onChooseVideo,
   onSaveAdd,
+  addError,
   onCancelAdd,
   onContinue,
 }: {
@@ -314,6 +318,7 @@ export function GallerySetupScreen({
   onChooseQuote: () => void
   onChooseVideo: () => void
   onSaveAdd: () => void
+  addError?: string
   onCancelAdd: () => void
   onContinue: () => void
 }) {
@@ -330,6 +335,7 @@ export function GallerySetupScreen({
           video={video}
           onQuote={onQuote}
           onVideo={onVideo}
+          error={addError}
           onSave={onSaveAdd}
           onCancel={onCancelAdd}
         />
@@ -486,16 +492,19 @@ export function InviteScreen({
 
 export function AcceptInviteScreen({
   name,
+  error,
   onAccept,
   onSkip,
 }: {
   name: string
+  error?: string
   onAccept: () => void
   onSkip: () => void
 }) {
   return (
     <Screen>
       <h1>{name} wants to send you dreams</h1>
+      {error && <p style={{ color: "var(--dream-pink-dim)" }}>{error}</p>}
       <TextBtn forest onClick={onAccept}>
         accept
       </TextBtn>
@@ -514,6 +523,7 @@ export function GalleryPickScreen({
   video,
   canSend,
   sendLabel = "send dream",
+  error,
   onBack,
   onSelect,
   onDelete,
@@ -523,6 +533,7 @@ export function GalleryPickScreen({
   onQuote,
   onVideo,
   onSaveAdd,
+  addError,
   onCancelAdd,
   onSend,
 }: {
@@ -533,6 +544,7 @@ export function GalleryPickScreen({
   video: string
   canSend: boolean
   sendLabel?: string
+  error?: string
   onBack: () => void
   onSelect: (item: GalleryItem) => void
   onDelete: (item: GalleryItem) => void
@@ -542,6 +554,7 @@ export function GalleryPickScreen({
   onQuote: (value: string) => void
   onVideo: (value: string) => void
   onSaveAdd: () => void
+  addError?: string
   onCancelAdd: () => void
   onSend: () => void
 }) {
@@ -561,6 +574,7 @@ export function GalleryPickScreen({
           video={video}
           onQuote={onQuote}
           onVideo={onVideo}
+          error={addError}
           onSave={onSaveAdd}
           onCancel={onCancelAdd}
         />
@@ -581,6 +595,7 @@ export function GalleryPickScreen({
           <TextBtn onClick={onAddImage}>add an image</TextBtn>
           <TextBtn onClick={onChooseQuote}>add a quote</TextBtn>
           <TextBtn onClick={onChooseVideo}>add a video link</TextBtn>
+          {error && <p style={{ color: "var(--dream-pink-dim)" }}>{error}</p>}
           <TextBtn forest onClick={onSend} disabled={!canSend}>
             {sendLabel}
           </TextBtn>

@@ -51,6 +51,16 @@ export const BEDTIMES: string[] = (() => {
 
 export const DEFAULT_BEDTIME = "11:00 pm"
 
+function youtubeHost(hostname: string): boolean {
+  const host = hostname.replace(/^www\./, "")
+  return (
+    host === "youtube.com" ||
+    host === "m.youtube.com" ||
+    host === "music.youtube.com" ||
+    host === "youtube-nocookie.com"
+  )
+}
+
 function youtubeId(url: string): string | null {
   try {
     const u = new URL(url)
@@ -58,7 +68,7 @@ function youtubeId(url: string): string | null {
       const id = u.pathname.split("/").filter(Boolean)[0]
       return id || null
     }
-    if (u.hostname.replace(/^www\./, "") === "youtube.com") {
+    if (youtubeHost(u.hostname)) {
       if (u.searchParams.get("v")) return u.searchParams.get("v")
       const parts = u.pathname.split("/").filter(Boolean)
       if (parts[0] === "embed" || parts[0] === "shorts" || parts[0] === "live") {
@@ -89,15 +99,25 @@ function instagramCode(url: string): string | null {
   try {
     const u = new URL(url)
     const host = u.hostname.replace(/^www\./, "")
-    if (host !== "instagram.com" && host !== "instagr.am") return null
+    const normalized = host.replace(/^m\./, "")
+    if (normalized !== "instagram.com" && normalized !== "instagr.am") return null
     const parts = u.pathname.split("/").filter(Boolean)
-    if ((parts[0] === "p" || parts[0] === "reel" || parts[0] === "tv") && parts[1]) {
+    if ((parts[0] === "p" || parts[0] === "reel" || parts[0] === "reels" || parts[0] === "tv") && parts[1]) {
       return parts[1]
     }
   } catch {
     return null
   }
   return null
+}
+
+export function isHttpUrl(raw: string): boolean {
+  try {
+    const protocol = new URL(raw.trim()).protocol
+    return protocol === "http:" || protocol === "https:"
+  } catch {
+    return false
+  }
 }
 
 export function parseVideoUrl(raw: string): ParsedVideo {
@@ -130,7 +150,7 @@ export function parseVideoUrl(raw: string): ParsedVideo {
       label: "instagram",
     }
   }
-  return { kind: "link", url, label: "video" }
+  return { kind: "link", url: isHttpUrl(url) ? url : "", label: "video" }
 }
 
 export function newId(): string {

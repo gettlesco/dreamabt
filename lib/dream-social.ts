@@ -1,13 +1,21 @@
-import { zonedClock } from "@/lib/dream-bedtime"
+import { dreamNightDate } from "@/lib/dream-bedtime"
 import { localTimeZone } from "@/lib/dream-pwa"
-import type { GalleryItem, Person } from "@/lib/dream-about-me"
+import { isHttpUrl, type GalleryItem, type Person } from "@/lib/dream-about-me"
 import { getDreamBrowserClient } from "@/lib/dream-supabase"
 import { blobFromImageUrl, prepareDreamImage } from "@/lib/dream-image"
 
-const SEE_MS = 10 * 60 * 1000
-const MAX_MS = 2 * 24 * 60 * 60 * 1000
-
 type InviteProfile = { id: string; name: string }
+
+type SendDreamResult = {
+  ok?: boolean
+  replaced_paths?: string[]
+}
+
+type RevealDreamResult = {
+  ok?: boolean
+  opened?: boolean
+  streak?: number
+}
 
 type DreamRow = {
   id: string
@@ -28,7 +36,30 @@ function client() {
 }
 
 export function nightDateFor(timeZone = localTimeZone()) {
-  return zonedClock(timeZone).dateKey
+  return dreamNightDate(timeZone)
+}
+
+function nightForZone(timeZone: string | null | undefined): string | null {
+  const zone = timeZone?.trim()
+  if (!zone) return null
+  try {
+    return dreamNightDate(zone)
+  } catch {
+    return null
+  }
+}
+
+async function serverNights(ids: string[]): Promise<Map<string, string>> {
+  const nights = new Map<string, string>()
+  if (!ids.length) return nights
+  const supabase = client()
+  if (!supabase) return nights
+  const { data, error } = await supabase.rpc("connected_dream_nights", { p_ids: ids })
+  if (error || !Array.isArray(data)) return nights
+  for (const row of data as { user_id?: string; night_date?: string | null }[]) {
+    if (row.user_id && row.night_date) nights.set(row.user_id, row.night_date)
+  }
+  return nights
 }
 
 export async function ensureDreamCode(): Promise<string | null> {
@@ -77,6 +108,21 @@ export async function lookupInvite(code: string): Promise<InviteProfile | null> 
   return { id: row.id as string, name: row.name as string }
 }
 
+export async function hasAcceptedInvite(fromId: string): Promise<boolean> {
+  const supabase = client()
+  if (!supabase) return false
+  const { data: userData } = await supabase.auth.getUser()
+  if (!userData.user || userData.user.id === fromId) return false
+  const { data } = await supabase
+    .from("connections")
+    .select("id")
+    .eq("from_id", fromId)
+    .eq("to_id", userData.user.id)
+    .eq("status", "accepted")
+    .maybeSingle()
+  return Boolean(data)
+}
+
 export async function acceptInvite(fromId: string): Promise<boolean> {
   const supabase = client()
   if (!supabase) return false
@@ -104,27 +150,35 @@ export async function loadPeople(): Promise<Person[]> {
   const list = rows || []
   const otherIds = [...new Set(list.map((row) => (row.from_id === me ? row.to_id : row.from_id)))]
   const names = new Map<string, string>()
+  const zones = new Map<string, string | null>()
   if (otherIds.length) {
-    const profiles = await supabase.from("profiles").select("id, name").in("id", otherIds)
+    const profiles = await supabase.from("profiles").select("id, name, timezone").in("id", otherIds)
     for (const profile of profiles.data || []) {
-      names.set(profile.id as string, profile.name as string)
+      const id = profile.id as string
+      names.set(id, profile.name as string)
+      zones.set(id, (profile.timezone as string | null) ?? null)
     }
   }
-
-  const tonight = nightDateFor()
-  const { data: sent } = await supabase
-    .from("dreams")
-    .select("recipient_id, revealed_at, expires_at")
-    .eq("sender_id", me)
-    .eq("night_date", tonight)
-    .gt("expires_at", new Date().toISOString())
+  const nights = await serverNights(otherIds)
+  for (const id of otherIds) {
+    if (nights.has(id)) continue
+    const night = nightForZone(zones.get(id))
+    if (night) nights.set(id, night)
+  }
 
   const sentStatus = new Map<string, "waiting" | "seen">()
-  for (const dream of sent || []) {
-    sentStatus.set(
-      dream.recipient_id as string,
-      dream.revealed_at ? "seen" : "waiting",
-    )
+  if (otherIds.length) {
+    const { data: sent } = await supabase
+      .from("dreams")
+      .select("recipient_id, night_date, revealed_at, expires_at")
+      .eq("sender_id", me)
+      .in("recipient_id", otherIds)
+      .gt("expires_at", new Date().toISOString())
+    for (const dream of sent || []) {
+      const recipientId = dream.recipient_id as string
+      if (dream.night_date !== nights.get(recipientId)) continue
+      sentStatus.set(recipientId, dream.revealed_at ? "seen" : "waiting")
+    }
   }
 
   const people: Person[] = []
@@ -149,17 +203,6 @@ export async function loadPeople(): Promise<Person[]> {
   return people
 }
 
-async function recipientTimezone(recipientId: string): Promise<string> {
-  const supabase = client()
-  if (!supabase) return localTimeZone()
-  const { data } = await supabase
-    .from("profiles")
-    .select("timezone")
-    .eq("id", recipientId)
-    .maybeSingle()
-  return (data?.timezone as string | null) || localTimeZone()
-}
-
 async function uploadImage(userId: string, dreamId: string, source: Blob) {
   const supabase = client()
   if (!supabase) throw new Error("not signed in")
@@ -179,48 +222,41 @@ export async function sendDreamItem(item: GalleryItem, recipientId: string): Pro
   const { data: userData } = await supabase.auth.getUser()
   if (!userData.user) return false
   const senderId = userData.user.id
-  const tz = await recipientTimezone(recipientId)
-  const nightDate = nightDateFor(tz)
-  const now = Date.now()
 
-  const existing = await supabase
-    .from("dreams")
-    .select("id, revealed_at, image_path, thumb_path")
-    .eq("recipient_id", recipientId)
-    .eq("night_date", nightDate)
-    .gt("expires_at", new Date(now).toISOString())
+  if (item.kind === "video" && (!item.videoUrl || !isHttpUrl(item.videoUrl))) return false
+  if (item.kind === "quote" && !item.quote?.trim()) return false
+  if (item.kind === "image" && !item.imageUrl) return false
 
-  const revealed = (existing.data || []).find((row) => row.revealed_at)
-  if (revealed) return false
-
-  const stale = (existing.data || []).filter((row) => !row.revealed_at)
-  for (const row of stale) {
-    const paths = [row.image_path, row.thumb_path].filter((path): path is string => Boolean(path))
-    if (paths.length) await supabase.storage.from("dreams").remove(paths)
-    await supabase.from("dreams").delete().eq("id", row.id)
+  if (senderId === recipientId) {
+    await supabase.from("profiles").update({ timezone: localTimeZone() }).eq("id", senderId)
   }
 
-  const id = crypto.randomUUID()
   let imagePath: string | null = null
-  if (item.kind === "image") {
-    if (!item.imageUrl) return false
+  if (item.kind === "image" && item.imageUrl) {
     const blob = await blobFromImageUrl(item.imageUrl)
     if (!blob) return false
-    imagePath = await uploadImage(senderId, id, blob)
+    imagePath = await uploadImage(senderId, crypto.randomUUID(), blob)
   }
 
-  const { error } = await supabase.from("dreams").insert({
-    id,
-    sender_id: senderId,
-    recipient_id: recipientId,
-    kind: item.kind,
-    quote: item.kind === "quote" ? item.quote ?? null : null,
-    video_url: item.kind === "video" ? item.videoUrl ?? null : null,
-    image_path: imagePath,
-    night_date: nightDate,
-    expires_at: new Date(now + MAX_MS).toISOString(),
+  const { data, error } = await supabase.rpc("send_dream", {
+    p_recipient: recipientId,
+    p_kind: item.kind,
+    p_quote: item.kind === "quote" ? item.quote?.trim() ?? null : null,
+    p_video_url: item.kind === "video" ? item.videoUrl?.trim() ?? null : null,
+    p_image_path: imagePath,
+    p_thumb_path: null,
   })
-  return !error
+  const result = (data ?? null) as SendDreamResult | null
+  if (error || !result?.ok) {
+    if (imagePath) await supabase.storage.from("dreams").remove([imagePath])
+    return false
+  }
+
+  const stale = (result.replaced_paths || []).filter(
+    (path) => Boolean(path) && path !== imagePath && path.startsWith(`${senderId}/`),
+  )
+  if (stale.length) await supabase.storage.from("dreams").remove(stale)
+  return true
 }
 
 async function signedUrl(path: string | null): Promise<string | undefined> {
@@ -243,7 +279,8 @@ export async function loadTonightDream(): Promise<{
   if (!userData.user) return null
   const tz = localTimeZone()
   await supabase.from("profiles").update({ timezone: tz }).eq("id", userData.user.id)
-  const nightDate = nightDateFor(tz)
+  const nights = await serverNights([userData.user.id])
+  const nightDate = nights.get(userData.user.id) ?? nightDateFor(tz)
   const { data } = await supabase
     .from("dreams")
     .select("id, sender_id, kind, quote, video_url, image_path, thumb_path, revealed_at, expires_at")
@@ -275,21 +312,17 @@ export async function loadTonightDream(): Promise<{
   }
 }
 
-export async function revealTonightDream(dreamId: string): Promise<boolean> {
+export async function revealTonightDream(
+  dreamId: string,
+): Promise<{ opened: boolean; streak: number } | null> {
   const supabase = client()
-  if (!supabase) return false
+  if (!supabase) return null
   const { data: userData } = await supabase.auth.getUser()
-  if (!userData.user) return false
-  const now = new Date()
-  const { error } = await supabase
-    .from("dreams")
-    .update({
-      revealed_at: now.toISOString(),
-      expires_at: new Date(now.getTime() + SEE_MS).toISOString(),
-    })
-    .eq("id", dreamId)
-    .eq("recipient_id", userData.user.id)
-    .is("revealed_at", null)
-  return !error
+  if (!userData.user) return null
+  const { data, error } = await supabase.rpc("reveal_dream", { p_dream_id: dreamId })
+  if (error || !data || typeof data !== "object") return null
+  const result = data as RevealDreamResult
+  if (!result.ok || typeof result.streak !== "number") return null
+  return { opened: Boolean(result.opened), streak: result.streak }
 }
 

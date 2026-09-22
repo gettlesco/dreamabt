@@ -63,7 +63,24 @@ create policy "profiles_update_own"
   using (auth.uid() = id)
   with check (auth.uid() = id);
 
-grant select, insert, update on public.profiles to authenticated;
+grant select, insert on public.profiles to authenticated;
+revoke update on public.profiles from authenticated;
+grant update (bedtime, dream_code) on public.profiles to authenticated;
+
+-- timezone is added in dreams.sql. Re-running this file must not drop that privilege
+-- or reopen streak, which dream-lifecycle.sql keeps server-controlled.
+do $$
+begin
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'profiles'
+      and column_name = 'timezone'
+  ) then
+    execute 'grant update (timezone) on public.profiles to authenticated';
+  end if;
+end $$;
 
 -- Bedtime PWA push (also in supabase/push-subscriptions.sql)
 create table if not exists public.push_subscriptions (

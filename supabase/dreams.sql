@@ -1,5 +1,6 @@
 -- One-way connections + ephemeral dreams.
 -- Run in the same Dream About Me Supabase project after dream-about-me.sql.
+-- Then run supabase/dream-lifecycle.sql (reveal, streak, one dream per night).
 
 alter table public.profiles
   add column if not exists timezone text;
@@ -116,41 +117,14 @@ create policy "dreams_select_own"
   to authenticated
   using (sender_id = auth.uid() or recipient_id = auth.uid());
 
+-- Inserts, updates, and deletes go through send_dream / reveal_dream
+-- (supabase/dream-lifecycle.sql). Direct writes stay closed if this file is re-run.
 drop policy if exists "dreams_insert_sender" on public.dreams;
-create policy "dreams_insert_sender"
-  on public.dreams
-  for insert
-  to authenticated
-  with check (
-    sender_id = auth.uid()
-    and (
-      recipient_id = auth.uid()
-      or exists (
-        select 1
-        from public.connections c
-        where c.from_id = auth.uid()
-          and c.to_id = recipient_id
-          and c.status = 'accepted'
-      )
-    )
-  );
-
 drop policy if exists "dreams_update_own" on public.dreams;
-create policy "dreams_update_own"
-  on public.dreams
-  for update
-  to authenticated
-  using (sender_id = auth.uid() or recipient_id = auth.uid())
-  with check (sender_id = auth.uid() or recipient_id = auth.uid());
-
 drop policy if exists "dreams_delete_sender" on public.dreams;
-create policy "dreams_delete_sender"
-  on public.dreams
-  for delete
-  to authenticated
-  using (sender_id = auth.uid());
 
-grant select, insert, update, delete on public.dreams to authenticated;
+revoke insert, update, delete on public.dreams from authenticated;
+grant select on public.dreams to authenticated;
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values (

@@ -116,6 +116,10 @@ export async function handleDreamAuth(request: Request, action: DreamAuthAction)
       user = signed.data.user
     } else if (signed.error) {
       console.error("[dream/signup]", signed.error.message)
+      const message = signed.error.message.toLowerCase()
+      if (message.includes("already") || message.includes("registered")) {
+        return authFail()
+      }
     }
   }
 

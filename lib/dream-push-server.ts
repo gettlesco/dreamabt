@@ -1,6 +1,6 @@
 import webpush from "web-push"
 import { createClient } from "@supabase/supabase-js"
-import { bedtimeDue } from "@/lib/dream-bedtime"
+import { bedtimeDue, dreamNightDate } from "@/lib/dream-bedtime"
 
 type PushRow = {
   id: string
@@ -30,6 +30,20 @@ function serviceClient() {
   return createClient(url, key, {
     auth: { persistSession: false, autoRefreshToken: false },
   })
+}
+
+function zoneForDreamNight(profileZone: string | null | undefined, pushZone: string | null | undefined) {
+  for (const zone of [profileZone, pushZone]) {
+    const trimmed = zone?.trim()
+    if (!trimmed) continue
+    try {
+      dreamNightDate(trimmed)
+      return trimmed
+    } catch {
+      continue
+    }
+  }
+  return ""
 }
 
 function applyVapid() {
@@ -97,11 +111,15 @@ export async function tickDreamPushes(windowMinutes = 15) {
   const rows = (data || []) as PushRow[]
   const userIds = [...new Set(rows.map((row) => row.user_id))]
   const bedtimes = new Map<string, string | null>()
-  const waiting = new Set<string>()
+  const profileZones = new Map<string, string>()
+  const openNights = new Map<string, Set<string>>()
   if (userIds.length) {
     const profiles = await supabase.from("profiles").select("id, bedtime, timezone").in("id", userIds)
     for (const profile of profiles.data || []) {
-      bedtimes.set(profile.id as string, (profile.bedtime as string | null) ?? null)
+      const id = profile.id as string
+      bedtimes.set(id, (profile.bedtime as string | null) ?? null)
+      const zone = typeof profile.timezone === "string" ? profile.timezone.trim() : ""
+      if (zone) profileZones.set(id, zone)
     }
     const { data: dreams } = await supabase
       .from("dreams")
@@ -110,20 +128,28 @@ export async function tickDreamPushes(windowMinutes = 15) {
       .is("revealed_at", null)
       .gt("expires_at", new Date().toISOString())
     for (const dream of dreams || []) {
-      waiting.add(dream.recipient_id as string)
+      const id = dream.recipient_id as string
+      const nights = openNights.get(id) ?? new Set<string>()
+      nights.add(dream.night_date as string)
+      openNights.set(id, nights)
     }
   }
 
   let sent = 0
   let skipped = 0
   for (const row of rows) {
-    if (!waiting.has(row.user_id)) {
+    const timeZone = zoneForDreamNight(profileZones.get(row.user_id), row.timezone)
+    if (!timeZone) {
       skipped += 1
       continue
     }
-    const timeZone = row.timezone || "UTC"
+    const night = dreamNightDate(timeZone)
+    if (!openNights.get(row.user_id)?.has(night)) {
+      skipped += 1
+      continue
+    }
     const { due, dateKey } = bedtimeDue(bedtimes.get(row.user_id) ?? null, timeZone, windowMinutes)
-    if (!due || row.last_notified_on === dateKey) {
+    if (!due || row.last_notified_on === night || row.last_notified_on === dateKey) {
       skipped += 1
       continue
     }
@@ -134,7 +160,7 @@ export async function tickDreamPushes(windowMinutes = 15) {
       })
       await supabase
         .from("push_subscriptions")
-        .update({ last_notified_on: dateKey })
+        .update({ last_notified_on: night })
         .eq("id", row.id)
       sent += 1
     } catch (err) {

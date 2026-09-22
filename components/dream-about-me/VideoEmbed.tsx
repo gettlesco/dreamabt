@@ -1,4 +1,4 @@
-import { parseVideoUrl } from "@/lib/dream-about-me"
+import { isHttpUrl, parseVideoUrl } from "@/lib/dream-about-me"
 
 type VideoEmbedProps = {
   url: string
@@ -27,6 +27,8 @@ export function VideoEmbed({ url, variant }: VideoEmbedProps) {
     )
   }
 
+  const href = isHttpUrl(parsed.url) ? parsed.url : undefined
+
   if (parsed.embedSrc) {
     return (
       <div>
@@ -37,15 +39,21 @@ export function VideoEmbed({ url, variant }: VideoEmbedProps) {
           allowFullScreen
           style={{ width: "100%", aspectRatio: "9 / 16", border: 0, background: "var(--dream-forest)" }}
         />
-        <a href={parsed.url} target="_blank" rel="noreferrer">
-          {parsed.label}
-        </a>
+        {href ? (
+          <a href={href} target="_blank" rel="noreferrer">
+            {parsed.label}
+          </a>
+        ) : (
+          <p>{parsed.label}</p>
+        )}
       </div>
     )
   }
 
+  if (!href) return <p>{parsed.label}</p>
+
   return (
-    <a href={parsed.url} target="_blank" rel="noreferrer">
+    <a href={href} target="_blank" rel="noreferrer">
       {parsed.url}
     </a>
   )
