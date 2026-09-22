@@ -2,7 +2,7 @@ export const DREAM_FONT = "'IM Fell French Canon', 'Iowan Old Style', Georgia, s
 
 export type DreamKind = "image" | "quote" | "video"
 
-export type GalleryItem = {
+export type DreamItem = {
   id: string
   kind: DreamKind
   quote?: string
@@ -21,7 +21,7 @@ export type Person = {
 }
 
 export type PendingDream = {
-  item: GalleryItem
+  item: DreamItem
   fromName?: string
 }
 
@@ -159,19 +159,6 @@ export function newId(): string {
   }
   return `d-${Date.now()}-${Math.random().toString(16).slice(2)}`
 }
-
-export const DEMO_GALLERY: GalleryItem[] = [
-  {
-    id: "demo-quote",
-    kind: "quote",
-    quote: "leave the window a little open.",
-  },
-  {
-    id: "demo-video",
-    kind: "video",
-    videoUrl: "https://www.youtube.com/watch?v=jfKfPfyJRdk",
-  },
-]
 
 export const DEMO_PEOPLE: Person[] = [
   { id: "macy", name: "macy", status: "connected", sentStatus: "seen" },

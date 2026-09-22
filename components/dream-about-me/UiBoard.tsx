@@ -1,12 +1,11 @@
 import { useEffect, useState, type ReactNode } from "react"
-import { DEFAULT_BEDTIME, DEMO_GALLERY, DEMO_PEOPLE, DEMO_PENDING } from "@/lib/dream-about-me"
+import { DEFAULT_BEDTIME, DEMO_PEOPLE, DEMO_PENDING } from "@/lib/dream-about-me"
 import {
   AcceptInviteScreen,
   BedtimeGateScreen,
   ChoosePersonScreen,
+  ComposeDreamScreen,
   DreamSentScreen,
-  GalleryPickScreen,
-  GallerySetupScreen,
   EmojiScreen,
   HomeScreen,
   InviteScreen,
@@ -130,26 +129,6 @@ const SCREENS: BoardScreen[] = [
     ),
   },
   {
-    id: "gallery-setup",
-    title: "gallery setup",
-    node: (
-      <GallerySetupScreen
-        items={DEMO_GALLERY}
-        addMode={null}
-        quote=""
-        video=""
-        onQuote={noop}
-        onVideo={noop}
-        onAddImage={noop}
-        onChooseQuote={noop}
-        onChooseVideo={noop}
-        onSaveAdd={noop}
-        onCancelAdd={noop}
-        onContinue={noop}
-      />
-    ),
-  },
-  {
     id: "home",
     title: "home",
     node: (
@@ -208,19 +187,15 @@ const SCREENS: BoardScreen[] = [
     node: <AcceptInviteScreen name="macy" onAccept={noop} onSkip={noop} />,
   },
   {
-    id: "pick",
-    title: "pick a dream",
+    id: "set-dream",
+    title: "set my dream",
     node: (
-      <GalleryPickScreen
-        items={DEMO_GALLERY}
-        selectedId="demo-quote"
+      <ComposeDreamScreen
+        mine
         addMode={null}
         quote=""
         video=""
-        canSend
         onBack={noop}
-        onSelect={noop}
-        onDelete={noop}
         onAddImage={noop}
         onChooseQuote={noop}
         onChooseVideo={noop}
@@ -228,7 +203,25 @@ const SCREENS: BoardScreen[] = [
         onVideo={noop}
         onSaveAdd={noop}
         onCancelAdd={noop}
-        onSend={noop}
+      />
+    ),
+  },
+  {
+    id: "send-dream",
+    title: "send a dream",
+    node: (
+      <ComposeDreamScreen
+        addMode={null}
+        quote=""
+        video=""
+        onBack={noop}
+        onAddImage={noop}
+        onChooseQuote={noop}
+        onChooseVideo={noop}
+        onQuote={noop}
+        onVideo={noop}
+        onSaveAdd={noop}
+        onCancelAdd={noop}
       />
     ),
   },
@@ -236,6 +229,11 @@ const SCREENS: BoardScreen[] = [
     id: "sent",
     title: "sent",
     node: <DreamSentScreen onDone={noop} />,
+  },
+  {
+    id: "dream-set",
+    title: "dream set",
+    node: <DreamSentScreen mine onDone={noop} />,
   },
   {
     id: "bedtime",

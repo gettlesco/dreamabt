@@ -1,6 +1,7 @@
 -- One-way connections + ephemeral dreams.
 -- Run in the same Dream About Me Supabase project after dream-about-me.sql.
--- Then run supabase/dream-lifecycle.sql (reveal, streak, one dream per night).
+-- Then run supabase/dream-lifecycle.sql (reveal, streak, one incoming dream per night).
+-- Then run supabase/solo-dream.sql (the dream that stays, under anything sent to you).
 
 alter table public.profiles
   add column if not exists timezone text;

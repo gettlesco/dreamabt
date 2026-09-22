@@ -1,5 +1,7 @@
--- Dream night, reveal, and one dream per recipient per night.
+-- Dream night, reveal, and one incoming dream per recipient per night.
 -- A second send the same night is refused, whether or not the first was opened.
+-- A dream to yourself is refused. That lasting dream lives in solo_dreams
+-- (supabase/solo-dream.sql) and does not take this night's slot.
 -- Run once in the Dream About Me Supabase SQL editor. Safe to re-run.
 -- Does not drop tables, truncate, or delete dream rows.
 --
@@ -12,6 +14,9 @@
 
 alter table public.profiles
   add column if not exists timezone text;
+
+alter table public.profiles
+  add column if not exists last_ritual_night date;
 
 create or replace function public.dream_night(tz text, at timestamptz default now())
 returns date
@@ -251,7 +256,7 @@ begin
   if v_sender is null then
     return jsonb_build_object('ok', false, 'error', 'unauthorized');
   end if;
-  if p_recipient is null then
+  if p_recipient is null or p_recipient = v_sender then
     return jsonb_build_object('ok', false, 'error', 'bad_recipient');
   end if;
   if p_kind not in ('image', 'quote', 'video') then
@@ -405,7 +410,12 @@ begin
 
   perform set_config('dream.allow_streak', '1', true);
   update public.profiles
-  set streak = streak + 1
+  set
+    streak = case
+      when last_ritual_night is distinct from v_dream.night_date then streak + 1
+      else streak
+    end,
+    last_ritual_night = v_dream.night_date
   where id = v_user
   returning streak into v_streak;
 

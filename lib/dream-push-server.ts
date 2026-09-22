@@ -113,6 +113,7 @@ export async function tickDreamPushes(windowMinutes = 15) {
   const bedtimes = new Map<string, string | null>()
   const profileZones = new Map<string, string>()
   const openNights = new Map<string, Set<string>>()
+  const soloUsers = new Set<string>()
   if (userIds.length) {
     const profiles = await supabase.from("profiles").select("id, bedtime, timezone").in("id", userIds)
     for (const profile of profiles.data || []) {
@@ -133,6 +134,8 @@ export async function tickDreamPushes(windowMinutes = 15) {
       nights.add(dream.night_date as string)
       openNights.set(id, nights)
     }
+    const { data: solos } = await supabase.from("solo_dreams").select("user_id").in("user_id", userIds)
+    for (const solo of solos || []) soloUsers.add(solo.user_id as string)
   }
 
   let sent = 0
@@ -144,7 +147,7 @@ export async function tickDreamPushes(windowMinutes = 15) {
       continue
     }
     const night = dreamNightDate(timeZone)
-    if (!openNights.get(row.user_id)?.has(night)) {
+    if (!openNights.get(row.user_id)?.has(night) && !soloUsers.has(row.user_id)) {
       skipped += 1
       continue
     }

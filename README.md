@@ -2,7 +2,7 @@
 
 Dream About Me — [dreamabt.me](https://dreamabt.me)
 
-Nightly ritual. Personal gallery, optional social. Accounts use a first name plus a 3-emoji private key.
+Nightly ritual. One dream of your own, and whatever someone sends you that night. Accounts use a first name plus a 3-emoji private key.
 
 ## Local
 

@@ -1,6 +1,6 @@
 import { dreamNightDate } from "@/lib/dream-bedtime"
 import { localTimeZone } from "@/lib/dream-pwa"
-import { isHttpUrl, type GalleryItem, type Person } from "@/lib/dream-about-me"
+import { isHttpUrl, type DreamItem, type Person } from "@/lib/dream-about-me"
 import { getDreamBrowserClient } from "@/lib/dream-supabase"
 import { blobFromImageUrl, prepareDreamImage } from "@/lib/dream-image"
 
@@ -254,20 +254,57 @@ export async function findDreamRecipient(
   return { id: payload.id, name: payload.name }
 }
 
-export async function sendDreamItem(item: GalleryItem, recipientId: string): Promise<boolean> {
+export async function setSoloDream(item: DreamItem): Promise<boolean> {
   const supabase = client()
   if (!supabase) return false
   const { data: userData } = await supabase.auth.getUser()
   if (!userData.user) return false
-  const senderId = userData.user.id
+  const userId = userData.user.id
 
   if (item.kind === "video" && (!item.videoUrl || !isHttpUrl(item.videoUrl))) return false
   if (item.kind === "quote" && !item.quote?.trim()) return false
   if (item.kind === "image" && !item.imageUrl) return false
 
-  if (senderId === recipientId) {
-    await supabase.from("profiles").update({ timezone: localTimeZone() }).eq("id", senderId)
+  await supabase.from("profiles").update({ timezone: localTimeZone() }).eq("id", userId)
+
+  let imagePath: string | null = null
+  if (item.kind === "image" && item.imageUrl) {
+    const blob = await blobFromImageUrl(item.imageUrl)
+    if (!blob) return false
+    imagePath = await uploadImage(userId, crypto.randomUUID(), blob)
   }
+
+  const { data, error } = await supabase.rpc("set_solo_dream", {
+    p_kind: item.kind,
+    p_quote: item.kind === "quote" ? item.quote?.trim() ?? null : null,
+    p_video_url: item.kind === "video" ? item.videoUrl?.trim() ?? null : null,
+    p_image_path: imagePath,
+    p_thumb_path: null,
+  })
+  const result = (data ?? null) as SendDreamResult | null
+  if (error || !result?.ok) {
+    if (imagePath) await supabase.storage.from("dreams").remove([imagePath])
+    return false
+  }
+
+  const stale = (result.replaced_paths || []).filter(
+    (path) => Boolean(path) && path !== imagePath && path.startsWith(`${userId}/`),
+  )
+  if (stale.length) await supabase.storage.from("dreams").remove(stale)
+  return true
+}
+
+export async function sendDreamItem(item: DreamItem, recipientId: string): Promise<boolean> {
+  const supabase = client()
+  if (!supabase) return false
+  const { data: userData } = await supabase.auth.getUser()
+  if (!userData.user) return false
+  const senderId = userData.user.id
+  if (senderId === recipientId) return false
+
+  if (item.kind === "video" && (!item.videoUrl || !isHttpUrl(item.videoUrl))) return false
+  if (item.kind === "quote" && !item.quote?.trim()) return false
+  if (item.kind === "image" && !item.imageUrl) return false
 
   let imagePath: string | null = null
   if (item.kind === "image" && item.imageUrl) {
@@ -307,9 +344,10 @@ async function signedUrl(path: string | null): Promise<string | undefined> {
 
 export async function loadTonightDream(): Promise<{
   id: string
-  item: GalleryItem
+  item: DreamItem
   fromName?: string
   revealed: boolean
+  solo: boolean
 } | null> {
   const supabase = client()
   if (!supabase) return null
@@ -323,31 +361,66 @@ export async function loadTonightDream(): Promise<{
     .from("dreams")
     .select("id, sender_id, kind, quote, video_url, image_path, thumb_path, revealed_at, expires_at")
     .eq("recipient_id", userData.user.id)
+    .neq("sender_id", userData.user.id)
     .eq("night_date", nightDate)
     .gt("expires_at", new Date().toISOString())
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle()
-  if (!data) return null
-  const row = data as DreamRow
-  const fullUrl = await signedUrl(row.image_path)
-  let fromName: string | undefined
-  if (row.sender_id !== userData.user.id) {
+  if (data) {
+    const row = data as DreamRow
+    const fullUrl = await signedUrl(row.image_path)
     const profile = await supabase.from("profiles").select("name").eq("id", row.sender_id).maybeSingle()
-    fromName = (profile.data?.name as string | undefined) || undefined
-  }
-  return {
-    id: row.id,
-    fromName,
-    revealed: Boolean(row.revealed_at),
-    item: {
+    return {
       id: row.id,
-      kind: row.kind,
-      quote: row.quote ?? undefined,
-      videoUrl: row.video_url ?? undefined,
+      solo: false,
+      fromName: (profile.data?.name as string | undefined) || undefined,
+      revealed: Boolean(row.revealed_at),
+      item: {
+        id: row.id,
+        kind: row.kind,
+        quote: row.quote ?? undefined,
+        videoUrl: row.video_url ?? undefined,
+        imageUrl: fullUrl,
+      },
+    }
+  }
+
+  const solo = await supabase
+    .from("solo_dreams")
+    .select("kind, quote, video_url, image_path")
+    .eq("user_id", userData.user.id)
+    .maybeSingle()
+  if (!solo.data) return null
+  const kept = solo.data as {
+    kind: DreamRow["kind"]
+    quote: string | null
+    video_url: string | null
+    image_path: string | null
+  }
+  const fullUrl = await signedUrl(kept.image_path)
+  return {
+    id: userData.user.id,
+    solo: true,
+    revealed: false,
+    item: {
+      id: userData.user.id,
+      kind: kept.kind,
+      quote: kept.quote ?? undefined,
+      videoUrl: kept.video_url ?? undefined,
       imageUrl: fullUrl,
     },
   }
+}
+
+export async function revealSoloDream(): Promise<{ opened: boolean; streak: number } | null> {
+  const supabase = client()
+  if (!supabase) return null
+  const { data, error } = await supabase.rpc("reveal_solo_dream")
+  if (error || !data || typeof data !== "object") return null
+  const result = data as RevealDreamResult
+  if (!result.ok || typeof result.streak !== "number") return null
+  return { opened: Boolean(result.opened), streak: result.streak }
 }
 
 export async function revealTonightDream(

@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react"
-import type { GalleryItem, Person } from "@/lib/dream-about-me"
+import type { DreamItem, Person } from "@/lib/dream-about-me"
 import { PRIVATE_KEY_EMOJIS, PRIVATE_KEY_LENGTH } from "@/lib/dream-auth"
 import { TimePicker } from "./TimePicker"
 import { VideoEmbed } from "./VideoEmbed"
@@ -250,6 +250,7 @@ export function AddFields({
   quote,
   video,
   error,
+  saveLabel,
   onQuote,
   onVideo,
   onSave,
@@ -259,6 +260,7 @@ export function AddFields({
   quote: string
   video: string
   error?: string
+  saveLabel: string
   onQuote: (value: string) => void
   onVideo: (value: string) => void
   onSave: () => void
@@ -291,90 +293,10 @@ export function AddFields({
         nevermind
       </TextBtn>
       <TextBtn forest onClick={onSave} disabled={mode === "quote" ? !quote.trim() : !video.trim()}>
-        add
+        {saveLabel}
       </TextBtn>
     </>
   )
-}
-
-export function GallerySetupScreen({
-  items,
-  addMode,
-  quote,
-  video,
-  onQuote,
-  onVideo,
-  onAddImage,
-  onChooseQuote,
-  onChooseVideo,
-  onSaveAdd,
-  addError,
-  onCancelAdd,
-  onContinue,
-}: {
-  items: GalleryItem[]
-  addMode: "quote" | "video" | null
-  quote: string
-  video: string
-  onQuote: (value: string) => void
-  onVideo: (value: string) => void
-  onAddImage: () => void
-  onChooseQuote: () => void
-  onChooseVideo: () => void
-  onSaveAdd: () => void
-  addError?: string
-  onCancelAdd: () => void
-  onContinue: () => void
-}) {
-  return (
-    <Screen>
-      <h1>your gallery</h1>
-      <p style={{ color: "var(--dream-pink-dim)" }}>
-        add things you&apos;d want to see before you fall asleep.
-      </p>
-      {addMode ? (
-        <AddFields
-          mode={addMode}
-          quote={quote}
-          video={video}
-          onQuote={onQuote}
-          onVideo={onVideo}
-          error={addError}
-          onSave={onSaveAdd}
-          onCancel={onCancelAdd}
-        />
-      ) : (
-        <>
-          {items.map((item) => (
-            <GalleryLine key={item.id} item={item} />
-          ))}
-          <TextBtn onClick={onAddImage}>add an image</TextBtn>
-          <TextBtn onClick={onChooseQuote}>add a quote</TextBtn>
-          <TextBtn onClick={onChooseVideo}>add a video link</TextBtn>
-          <TextBtn forest onClick={onContinue}>
-            continue
-          </TextBtn>
-        </>
-      )}
-    </Screen>
-  )
-}
-
-function GalleryLine({ item }: { item: GalleryItem }) {
-  if (item.kind === "image" && item.imageUrl) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img src={item.imageUrl} alt="" className={styles.thumb} />
-    )
-  }
-  if (item.kind === "video" && item.videoUrl) {
-    return (
-      <div className={styles.thumb} style={{ background: "var(--dream-forest)" }}>
-        <VideoEmbed url={item.videoUrl} variant="tile" />
-      </div>
-    )
-  }
-  return <p>{item.quote}</p>
 }
 
 export function HomeScreen({
@@ -627,6 +549,7 @@ export function ComposeDreamScreen({
           onQuote={onQuote}
           onVideo={onVideo}
           error={addError}
+          saveLabel={mine ? "set" : "send"}
           onSave={onSaveAdd}
           onCancel={onCancelAdd}
         />
@@ -645,133 +568,6 @@ export function ComposeDreamScreen({
         </>
       )}
     </Screen>
-  )
-}
-
-export function GalleryPickScreen({
-  items,
-  selectedId,
-  addMode,
-  quote,
-  video,
-  canSend,
-  sendLabel = "send dream",
-  error,
-  onBack,
-  onSelect,
-  onDelete,
-  onAddImage,
-  onChooseQuote,
-  onChooseVideo,
-  onQuote,
-  onVideo,
-  onSaveAdd,
-  addError,
-  onCancelAdd,
-  onSend,
-}: {
-  items: GalleryItem[]
-  selectedId: string | null
-  addMode: "quote" | "video" | null
-  quote: string
-  video: string
-  canSend: boolean
-  sendLabel?: string
-  error?: string
-  onBack: () => void
-  onSelect: (item: GalleryItem) => void
-  onDelete: (item: GalleryItem) => void
-  onAddImage: () => void
-  onChooseQuote: () => void
-  onChooseVideo: () => void
-  onQuote: (value: string) => void
-  onVideo: (value: string) => void
-  onSaveAdd: () => void
-  addError?: string
-  onCancelAdd: () => void
-  onSend: () => void
-}) {
-  return (
-    <Screen>
-      <TextBtn dim onClick={onBack}>
-        back
-      </TextBtn>
-      <h1>pick a dream</h1>
-      <p style={{ color: "var(--dream-pink-dim)" }}>
-        it&apos;ll be the last thing they see before they go to bed
-      </p>
-      {addMode ? (
-        <AddFields
-          mode={addMode}
-          quote={quote}
-          video={video}
-          onQuote={onQuote}
-          onVideo={onVideo}
-          error={addError}
-          onSave={onSaveAdd}
-          onCancel={onCancelAdd}
-        />
-      ) : (
-        <>
-          {items.length === 0 && (
-            <p style={{ color: "var(--dream-pink-dim)" }}>nothing in your gallery yet.</p>
-          )}
-          {items.map((item) => (
-            <GalleryTile
-              key={item.id}
-              item={item}
-              selected={item.id === selectedId}
-              onSelect={() => onSelect(item)}
-              onDelete={() => onDelete(item)}
-            />
-          ))}
-          <TextBtn onClick={onAddImage}>add an image</TextBtn>
-          <TextBtn onClick={onChooseQuote}>add a quote</TextBtn>
-          <TextBtn onClick={onChooseVideo}>add a video link</TextBtn>
-          {error && <p style={{ color: "var(--dream-pink-dim)" }}>{error}</p>}
-          <TextBtn forest onClick={onSend} disabled={!canSend}>
-            {sendLabel}
-          </TextBtn>
-        </>
-      )}
-    </Screen>
-  )
-}
-
-function GalleryTile({
-  item,
-  selected,
-  onSelect,
-  onDelete,
-}: {
-  item: GalleryItem
-  selected: boolean
-  onSelect: () => void
-  onDelete: () => void
-}) {
-  return (
-    <>
-      <button
-        type="button"
-        className={styles.btn}
-        onClick={onSelect}
-        style={{ opacity: selected ? 1 : 0.48 }}
-      >
-        {item.kind === "image" && item.imageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={item.imageUrl} alt="" className={styles.thumb} />
-        ) : item.kind === "video" && item.videoUrl ? (
-          <div className={styles.thumb} style={{ background: "var(--dream-forest)", margin: "0 auto" }}>
-            <VideoEmbed url={item.videoUrl} variant="tile" />
-          </div>
-        ) : (
-          <p>{item.quote}</p>
-        )}
-      </button>
-      <TextBtn dim onClick={onDelete}>
-        delete
-      </TextBtn>
-    </>
   )
 }
 
@@ -820,7 +616,7 @@ export function RevealScreen({
   fromName,
   onGoodnight,
 }: {
-  item: GalleryItem | null
+  item: DreamItem | null
   fromName?: string
   onGoodnight: () => void
 }) {
