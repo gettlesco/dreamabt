@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto"
 import { NextResponse } from "next/server"
-import { readProfileRow, type DreamProfile } from "@/lib/dream-auth"
+import { emojiFromMetadata, readProfileRow, type DreamProfile } from "@/lib/dream-auth"
 import {
   authFail,
   authRetry,
@@ -146,10 +146,12 @@ export async function handleDreamAuth(request: Request, action: DreamAuthAction)
     console.error("[dream/auth] profile missing after session")
     return authFail()
   }
+  const ready = readProfileRow(profile)
+  ready.emoji = emojiFromMetadata(user.app_metadata)
   return sessionPayload(
     session.access_token,
     session.refresh_token,
     session.expires_in,
-    readProfileRow(profile),
+    ready,
   )
 }

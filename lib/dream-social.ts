@@ -216,6 +216,44 @@ async function uploadImage(userId: string, dreamId: string, source: Blob) {
   return imagePath
 }
 
+async function authedDreamPost(path: string, body: unknown): Promise<Response | null> {
+  const supabase = client()
+  if (!supabase) return null
+  const { data: sessionData } = await supabase.auth.getSession()
+  if (!sessionData.session) return null
+  try {
+    return await fetch(path, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${sessionData.session.access_token}`,
+      },
+      body: JSON.stringify(body),
+    })
+  } catch {
+    return null
+  }
+}
+
+export async function saveDreamEmoji(input: { emoji: string } | { assign: true }): Promise<string | null> {
+  const res = await authedDreamPost("/api/dream/emoji", input)
+  if (!res) return null
+  const payload = (await res.json()) as { emoji?: string }
+  if (!res.ok || !payload.emoji) return null
+  return payload.emoji
+}
+
+export async function findDreamRecipient(
+  name: string,
+  emoji: string,
+): Promise<{ id: string; name: string } | null> {
+  const res = await authedDreamPost("/api/dream/find", { name, emoji })
+  if (!res) return null
+  const payload = (await res.json()) as { id?: string; name?: string }
+  if (!res.ok || !payload.id || !payload.name) return null
+  return { id: payload.id, name: payload.name }
+}
+
 export async function sendDreamItem(item: GalleryItem, recipientId: string): Promise<boolean> {
   const supabase = client()
   if (!supabase) return false

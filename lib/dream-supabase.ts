@@ -1,6 +1,7 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js"
 import {
   DREAM_AUTH_FAIL,
+  emojiFromMetadata,
   readProfileRow,
   type DreamProfile,
 } from "@/lib/dream-auth"
@@ -65,7 +66,10 @@ export async function restoreDreamSession(): Promise<DreamProfile | null> {
       .eq("id", sessionData.session.user.id)
       .maybeSingle()
     if (error || !data) return null
-    return readProfileRow(data)
+    const profile = readProfileRow(data)
+    const { data: userData } = await supabase.auth.getUser()
+    profile.emoji = emojiFromMetadata(userData.user?.app_metadata)
+    return profile
   } catch {
     return null
   }

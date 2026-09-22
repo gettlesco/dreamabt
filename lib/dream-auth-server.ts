@@ -15,7 +15,7 @@ const RATE_MAX = 8
 
 const attempts = new Map<string, { count: number; resetAt: number }>()
 
-export type DreamAuthAction = "signup" | "login"
+export type DreamAuthAction = "signup" | "login" | "find" | "emoji"
 
 export type DreamAuthInput = {
   name: string

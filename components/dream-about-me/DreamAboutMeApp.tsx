@@ -12,6 +12,8 @@ import {
 import {
   acceptInvite as acceptInviteLink,
   ensureDreamCode,
+  findDreamRecipient,
+  saveDreamEmoji,
   hasAcceptedInvite,
   loadPeople,
   loadTonightDream,
@@ -34,7 +36,9 @@ import {
   AcceptInviteScreen,
   BedtimeGateScreen,
   ChoosePersonScreen,
+  ComposeDreamScreen,
   DreamSentScreen,
+  EmojiScreen,
   GalleryPickScreen,
   GallerySetupScreen,
   HomeScreen,
@@ -60,6 +64,10 @@ type Screen =
   | "invite"
   | "accept"
   | "pick"
+  | "compose"
+  | "send-name"
+  | "send-emoji"
+  | "emoji"
   | "sent"
   | "bedtime"
   | "reveal"
@@ -87,8 +95,11 @@ export function DreamAboutMeApp() {
   const [addMode, setAddMode] = useState<AddMode>(null)
   const [draftQuote, setDraftQuote] = useState("")
   const [draftVideo, setDraftVideo] = useState("")
-  const [addTarget, setAddTarget] = useState<"setup" | "pick">("setup")
+  const [addTarget, setAddTarget] = useState<"setup" | "pick" | "compose">("setup")
   const [sendTo, setSendTo] = useState<Person | "me" | null>(null)
+  const [recipientName, setRecipientName] = useState("")
+  const [myEmoji, setMyEmoji] = useState<string | null>(null)
+  const [emojiError, setEmojiError] = useState("")
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [inviteLink, setInviteLink] = useState("dreamabt.me")
   const [copied, setCopied] = useState(false)
@@ -102,6 +113,10 @@ export function DreamAboutMeApp() {
   const [sendError, setSendError] = useState("")
   const ritualLock = useRef(false)
   const sendLock = useRef(false)
+  const authIgnore = useRef(false)
+  const findIgnore = useRef(false)
+  const emojiIgnore = useRef(false)
+  const [sending, setSending] = useState(false)
 
   useEffect(() => {
     const html = document.documentElement
@@ -144,6 +159,7 @@ export function DreamAboutMeApp() {
           setUserId(profile.id)
           if (profile.bedtime) setBedtime(profile.bedtime)
           setStreak(profile.streak)
+          setMyEmoji(profile.emoji)
           void persistDreamProfile({ timezone: localTimeZone() })
           const code = profile.dreamCode || (await ensureDreamCode())
           if (code) setDreamCode(code)
@@ -213,6 +229,9 @@ export function DreamAboutMeApp() {
     setDraftVideo("")
     setSendTo(null)
     setSelectedId(null)
+    setRecipientName("")
+    setMyEmoji(null)
+    setEmojiError("")
     setRevealed(null)
     setSendError("")
     setInviteFromId(null)
@@ -243,6 +262,7 @@ export function DreamAboutMeApp() {
 
   async function submitAuth() {
     if (busy) return
+    authIgnore.current = false
     setBusy(true)
     setAuthError("")
     const result = await postDreamAuth(authMode === "new" ? "signup" : "login", {
@@ -250,6 +270,7 @@ export function DreamAboutMeApp() {
       key: privateKey,
     })
     setBusy(false)
+    if (authIgnore.current) return
     if (!result.ok) {
       setAuthError(result.error)
       return
@@ -258,13 +279,18 @@ export function DreamAboutMeApp() {
     setUserId(result.profile.id)
     if (result.profile.bedtime) setBedtime(result.profile.bedtime)
     setStreak(result.profile.streak)
+    setMyEmoji(result.profile.emoji)
     void persistDreamProfile({ timezone: localTimeZone() })
     const code = result.profile.dreamCode || (await ensureDreamCode())
     if (code) setDreamCode(code)
     void loadPeople().then(setPeople)
     setPrivateKey([])
+    if (authMode === "new") {
+      setScreen("onboarding")
+      return
+    }
     if (inviteFromId) setScreen("accept")
-    else setScreen(authMode === "new" ? "onboarding" : "home")
+    else setScreen("home")
   }
 
   async function syncPushSubscription() {
@@ -309,7 +335,7 @@ export function DreamAboutMeApp() {
     void persistDreamProfile({ timezone: localTimeZone() })
   }
 
-  function openImagePicker(target: "setup" | "pick") {
+  function openImagePicker(target: "setup" | "pick" | "compose") {
     setAddTarget(target)
     fileRef.current?.click()
   }
@@ -318,15 +344,18 @@ export function DreamAboutMeApp() {
     if (!file) return
     const imageUrl = URL.createObjectURL(file)
     const item: GalleryItem = { id: newId(), kind: "image", imageUrl }
+    if (addTarget === "compose") {
+      void sendDreamWithItem(item)
+      return
+    }
     setGallery((prev) => [item, ...prev])
     if (addTarget === "pick") setSelectedId(item.id)
   }
 
   function saveAdd() {
+    let item: GalleryItem | null = null
     if (addMode === "quote" && draftQuote.trim()) {
-      const item: GalleryItem = { id: newId(), kind: "quote", quote: draftQuote.trim() }
-      setGallery((prev) => [item, ...prev])
-      if (addTarget === "pick") setSelectedId(item.id)
+      item = { id: newId(), kind: "quote", quote: draftQuote.trim() }
     }
     if (addMode === "video" && draftVideo.trim()) {
       const url = draftVideo.trim()
@@ -334,14 +363,19 @@ export function DreamAboutMeApp() {
         setAddError("that didn't work.")
         return
       }
-      const item: GalleryItem = { id: newId(), kind: "video", videoUrl: url }
-      setGallery((prev) => [item, ...prev])
-      if (addTarget === "pick") setSelectedId(item.id)
+      item = { id: newId(), kind: "video", videoUrl: url }
     }
     setAddError("")
     setDraftQuote("")
     setDraftVideo("")
     setAddMode(null)
+    if (!item) return
+    if (addTarget === "compose") {
+      void sendDreamWithItem(item)
+      return
+    }
+    setGallery((prev) => [item, ...prev])
+    if (addTarget === "pick") setSelectedId(item.id)
   }
 
   function deleteItem(item: GalleryItem) {
@@ -350,10 +384,10 @@ export function DreamAboutMeApp() {
     if (selectedId === item.id) setSelectedId(null)
   }
 
-  async function sendDream() {
-    const item = gallery.find((g) => g.id === selectedId)
+  async function sendDreamWithItem(item: GalleryItem) {
     if (!item || !sendTo || !userId || sendLock.current) return
     sendLock.current = true
+    setSending(true)
     setSendError("")
     const recipientId = sendTo === "me" ? userId : sendTo.id
     try {
@@ -372,7 +406,49 @@ export function DreamAboutMeApp() {
       setSendError("that didn't work.")
     } finally {
       sendLock.current = false
+      setSending(false)
     }
+  }
+
+  async function sendDream() {
+    const item = gallery.find((g) => g.id === selectedId)
+    if (!item) return
+    await sendDreamWithItem(item)
+  }
+
+  async function findRecipient(emoji: string) {
+    if (busy) return
+    findIgnore.current = false
+    setBusy(true)
+    setSendError("")
+    const found = await findDreamRecipient(displayName(recipientName), emoji)
+    setBusy(false)
+    if (findIgnore.current) return
+    if (!found) {
+      setSendError("that didn't work.")
+      return
+    }
+    setSendTo({ id: found.id, name: found.name, status: "connected" })
+    setAddMode(null)
+    setAddError("")
+    setSendError("")
+    setScreen("compose")
+  }
+
+  async function chooseEmoji(input: { emoji: string } | { assign: true }) {
+    if (busy) return
+    emojiIgnore.current = false
+    setBusy(true)
+    setEmojiError("")
+    const saved = await saveDreamEmoji(input)
+    setBusy(false)
+    if (emojiIgnore.current) return
+    if (!saved) {
+      setEmojiError("that didn't work.")
+      return
+    }
+    setMyEmoji(saved)
+    setScreen("home")
   }
 
   async function completeRitual() {
@@ -503,6 +579,7 @@ export function DreamAboutMeApp() {
             void submitAuth()
           }}
           onBack={() => {
+            authIgnore.current = true
             setAuthError("")
             setBusy(false)
             setScreen("private-key")
@@ -548,24 +625,35 @@ export function DreamAboutMeApp() {
             setDraftQuote("")
             setDraftVideo("")
           }}
-          onContinue={() => setScreen("home")}
+          onContinue={() => setScreen(inviteFromId ? "accept" : "home")}
         />
       )}
       {screen === "home" && (
         <HomeScreen
           streak={streak}
+          emoji={myEmoji}
           notiLabel={notiLabel}
           onSetMine={() => {
             setSendTo("me")
             setSelectedId(null)
+            setAddMode(null)
+            setAddError("")
             setSendError("")
-            setScreen("pick")
+            setScreen("compose")
           }}
-          onSendThem={() => {
-            void loadPeople().then(setPeople)
-            setScreen("choose-person")
+          onSend={() => {
+            setRecipientName("")
+            setSendTo(null)
+            setSendError("")
+            setScreen("send-name")
           }}
-          onReceive={() => setScreen("bedtime")}
+          onEmoji={() => {
+            emojiIgnore.current = true
+            setBusy(false)
+            setEmojiError("")
+            setScreen("emoji")
+          }}
+          onDream={() => setScreen("bedtime")}
           onNotis={requestNotis}
         />
       )}
@@ -597,6 +685,96 @@ export function DreamAboutMeApp() {
           error={inviteError}
           onAccept={() => void acceptInvite()}
           onSkip={() => setScreen(userId ? "home" : "landing")}
+        />
+      )}
+      {screen === "send-name" && (
+        <NameScreen
+          title="who's it for?"
+          name={recipientName}
+          error={sendError}
+          onName={(value) => {
+            setSendError("")
+            setRecipientName(value)
+          }}
+          onContinue={() => {
+            if (!displayName(recipientName)) return
+            setRecipientName(displayName(recipientName))
+            setSendError("")
+            setScreen("send-emoji")
+          }}
+          onBack={() => {
+            setRecipientName("")
+            setSendError("")
+            setScreen("home")
+          }}
+        />
+      )}
+      {screen === "emoji" && (
+        <EmojiScreen
+          title="your emoji"
+          hint="someone needs this to send you a dream."
+          current={myEmoji}
+          busy={busy}
+          error={emojiError}
+          onPick={(emoji) => void chooseEmoji({ emoji })}
+          onAssign={() => void chooseEmoji({ assign: true })}
+          onBack={() => {
+            emojiIgnore.current = true
+            setBusy(false)
+            setEmojiError("")
+            setScreen("home")
+          }}
+        />
+      )}
+      {screen === "send-emoji" && (
+        <EmojiScreen
+          title="their emoji"
+          busy={busy}
+          error={sendError}
+          onPick={(emoji) => void findRecipient(emoji)}
+          onBack={() => {
+            findIgnore.current = true
+            setBusy(false)
+            setSendError("")
+            setScreen("send-name")
+          }}
+        />
+      )}
+      {screen === "compose" && (
+        <ComposeDreamScreen
+          mine={sendTo === "me"}
+          addMode={addMode}
+          quote={draftQuote}
+          video={draftVideo}
+          busy={sending}
+          error={sendError}
+          addError={addError}
+          onBack={() => {
+            setAddMode(null)
+            setAddError("")
+            setDraftQuote("")
+            setDraftVideo("")
+            setSendError("")
+            setScreen(sendTo === "me" ? "home" : "send-emoji")
+          }}
+          onAddImage={() => openImagePicker("compose")}
+          onChooseQuote={() => {
+            setAddTarget("compose")
+            setAddMode("quote")
+          }}
+          onChooseVideo={() => {
+            setAddTarget("compose")
+            setAddMode("video")
+          }}
+          onQuote={setDraftQuote}
+          onVideo={setDraftVideo}
+          onSaveAdd={saveAdd}
+          onCancelAdd={() => {
+            setAddMode(null)
+            setAddError("")
+            setDraftQuote("")
+            setDraftVideo("")
+          }}
         />
       )}
       {screen === "pick" && (

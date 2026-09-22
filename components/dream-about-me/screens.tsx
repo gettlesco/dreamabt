@@ -72,6 +72,7 @@ export function LandingScreen({
 export function NameScreen({
   name,
   error,
+  title = "what's your name?",
   onName,
   onContinue,
   onBack,
@@ -79,6 +80,7 @@ export function NameScreen({
 }: {
   name: string
   error?: string
+  title?: string
   onName: (value: string) => void
   onContinue: () => void
   onBack: () => void
@@ -89,7 +91,7 @@ export function NameScreen({
       <TextBtn dim onClick={onBack}>
         back
       </TextBtn>
-      <h1>what&apos;s your name?</h1>
+      <h1>{title}</h1>
       <input
         className={styles.field}
         value={name}
@@ -119,6 +121,7 @@ export function PrivateKeyScreen({
   returning,
   busy,
   error,
+  title,
   onPick,
   onUndo,
   onContinue,
@@ -128,6 +131,7 @@ export function PrivateKeyScreen({
   returning?: boolean
   busy?: boolean
   error?: string
+  title?: string
   onPick: (emoji: string) => void
   onUndo: () => void
   onContinue: () => void
@@ -139,7 +143,7 @@ export function PrivateKeyScreen({
       <TextBtn dim onClick={onBack}>
         back
       </TextBtn>
-      <h1>{returning ? "your private key" : "choose your private key"}</h1>
+      <h1>{title ?? (returning ? "your private key" : "choose your private key")}</h1>
       <p style={{ color: "var(--dream-pink-dim)" }}>three things. order matters.</p>
       {picked.length > 0 && (
         <button type="button" className={`${styles.btn} ${styles.keyLine}`} onClick={onUndo}>
@@ -204,7 +208,7 @@ export function PrivateKeyConfirmScreen({
       <TextBtn forest onClick={onContinue} disabled={busy}>
         continue
       </TextBtn>
-      <TextBtn dim onClick={onBack} disabled={busy}>
+      <TextBtn dim onClick={onBack}>
         back
       </TextBtn>
     </Screen>
@@ -375,17 +379,21 @@ function GalleryLine({ item }: { item: GalleryItem }) {
 
 export function HomeScreen({
   streak,
+  emoji,
   notiLabel,
   onSetMine,
-  onSendThem,
-  onReceive,
+  onSend,
+  onEmoji,
+  onDream,
   onNotis,
 }: {
   streak: number
+  emoji?: string | null
   notiLabel?: string
   onSetMine: () => void
-  onSendThem: () => void
-  onReceive: () => void
+  onSend: () => void
+  onEmoji: () => void
+  onDream: () => void
   onNotis?: () => void
 }) {
   const nights = streak === 1 ? "1 night" : `${streak} nights`
@@ -394,14 +402,66 @@ export function HomeScreen({
     <Screen>
       <p>dream about me</p>
       <TextBtn onClick={onSetMine}>set my dream</TextBtn>
-      <TextBtn onClick={onSendThem}>send them a dream</TextBtn>
-      <TextBtn onClick={onReceive}>receive a dream</TextBtn>
+      <TextBtn onClick={onSend}>send a dream</TextBtn>
+      <TextBtn onClick={onEmoji}>{emoji || "set emoji"}</TextBtn>
+      <TextBtn onClick={onDream}>dream</TextBtn>
       {showNotis && (
         <TextBtn dim onClick={onNotis}>
           {notiLabel}
         </TextBtn>
       )}
       <p style={{ color: "var(--dream-pink-dim)" }}>{nights}</p>
+    </Screen>
+  )
+}
+
+export function EmojiScreen({
+  title,
+  hint,
+  current,
+  busy,
+  error,
+  onPick,
+  onAssign,
+  onBack,
+}: {
+  title: string
+  hint?: string
+  current?: string | null
+  busy?: boolean
+  error?: string
+  onPick: (emoji: string) => void
+  onAssign?: () => void
+  onBack: () => void
+}) {
+  return (
+    <Screen>
+      <TextBtn dim onClick={onBack}>
+        back
+      </TextBtn>
+      <h1>{title}</h1>
+      {hint && <p style={{ color: "var(--dream-pink-dim)" }}>{hint}</p>}
+      {current && <p className={styles.keyLine}>{current}</p>}
+      <div className={styles.emojiGrid}>
+        {PRIVATE_KEY_EMOJIS.map((emoji) => (
+          <button
+            key={emoji}
+            type="button"
+            className={`${styles.btn} ${styles.emojiCell}`}
+            onClick={() => onPick(emoji)}
+            disabled={busy}
+            aria-label={emoji}
+          >
+            {emoji}
+          </button>
+        ))}
+      </div>
+      {error && <p style={{ color: "var(--dream-pink-dim)" }}>{error}</p>}
+      {onAssign && (
+        <TextBtn forest onClick={onAssign} disabled={busy}>
+          get one
+        </TextBtn>
+      )}
     </Screen>
   )
 }
@@ -480,7 +540,7 @@ export function InviteScreen({
       </TextBtn>
       <h1>invite someone</h1>
       <p style={{ color: "var(--dream-pink-dim)" }}>
-        they have to accept before you can send them a dream.
+        they have to accept before you can send a dream.
       </p>
       <p className="break-all">{link}</p>
       <TextBtn forest onClick={onCopy}>
@@ -511,6 +571,79 @@ export function AcceptInviteScreen({
       <TextBtn dim onClick={onSkip}>
         not now
       </TextBtn>
+    </Screen>
+  )
+}
+
+export function ComposeDreamScreen({
+  mine,
+  addMode,
+  quote,
+  video,
+  busy,
+  error,
+  addError,
+  onBack,
+  onAddImage,
+  onChooseQuote,
+  onChooseVideo,
+  onQuote,
+  onVideo,
+  onSaveAdd,
+  onCancelAdd,
+}: {
+  mine?: boolean
+  addMode: "quote" | "video" | null
+  quote: string
+  video: string
+  busy?: boolean
+  error?: string
+  addError?: string
+  onBack: () => void
+  onAddImage: () => void
+  onChooseQuote: () => void
+  onChooseVideo: () => void
+  onQuote: (value: string) => void
+  onVideo: (value: string) => void
+  onSaveAdd: () => void
+  onCancelAdd: () => void
+}) {
+  return (
+    <Screen>
+      <TextBtn dim onClick={onBack}>
+        back
+      </TextBtn>
+      <h1>{mine ? "set your dream" : "send a dream"}</h1>
+      <p style={{ color: "var(--dream-pink-dim)" }}>
+        {mine
+          ? "the last thing you see before you go to bed."
+          : "it'll be the last thing they see before they go to bed"}
+      </p>
+      {addMode ? (
+        <AddFields
+          mode={addMode}
+          quote={quote}
+          video={video}
+          onQuote={onQuote}
+          onVideo={onVideo}
+          error={addError}
+          onSave={onSaveAdd}
+          onCancel={onCancelAdd}
+        />
+      ) : (
+        <>
+          <TextBtn onClick={onAddImage} disabled={busy}>
+            add an image
+          </TextBtn>
+          <TextBtn onClick={onChooseQuote} disabled={busy}>
+            add a quote
+          </TextBtn>
+          <TextBtn onClick={onChooseVideo} disabled={busy}>
+            add a video link
+          </TextBtn>
+          {error && <p style={{ color: "var(--dream-pink-dim)" }}>{error}</p>}
+        </>
+      )}
     </Screen>
   )
 }

@@ -7,6 +7,7 @@ import {
   DreamSentScreen,
   GalleryPickScreen,
   GallerySetupScreen,
+  EmojiScreen,
   HomeScreen,
   InviteScreen,
   LandingScreen,
@@ -156,9 +157,23 @@ const SCREENS: BoardScreen[] = [
         streak={3}
         notiLabel="turn on notis"
         onSetMine={noop}
-        onSendThem={noop}
-        onReceive={noop}
+        onSend={noop}
+        onEmoji={noop}
+        onDream={noop}
         onNotis={noop}
+      />
+    ),
+  },
+  {
+    id: "emoji",
+    title: "your emoji",
+    node: (
+      <EmojiScreen
+        title="your emoji"
+        hint="someone needs this to send you a dream."
+        onPick={noop}
+        onAssign={noop}
+        onBack={noop}
       />
     ),
   },

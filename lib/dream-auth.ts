@@ -40,6 +40,7 @@ export type DreamProfile = {
   bedtime: string | null
   streak: number
   dreamCode: string | null
+  emoji: string | null
 }
 
 export function normalizeEmoji(raw: string): string {
@@ -84,6 +85,18 @@ export function isCuratedPrivateKey(emojis: string[]): boolean {
   return parts.length === PRIVATE_KEY_LENGTH && parts.every((part) => PRIVATE_KEY_SET.has(part))
 }
 
+export function isCuratedEmoji(emoji: string): boolean {
+  return PRIVATE_KEY_SET.has(normalizeEmoji(emoji))
+}
+
+export function emojiFromMetadata(metadata: unknown): string | null {
+  if (!metadata || typeof metadata !== "object") return null
+  const emoji = (metadata as { emoji?: unknown }).emoji
+  if (typeof emoji !== "string") return null
+  const normalized = normalizeEmoji(emoji)
+  return isCuratedEmoji(normalized) ? normalized : null
+}
+
 export function privateKeyMaterial(emojis: string[]): string {
   return normalizePrivateKey(emojis).join("\u241f")
 }
@@ -95,6 +108,7 @@ export function readProfileRow(row: {
   bedtime: string | null
   streak: number
   dream_code: string | null
+  emoji?: string | null
 }): DreamProfile {
   return {
     id: row.id,
@@ -103,5 +117,6 @@ export function readProfileRow(row: {
     bedtime: row.bedtime,
     streak: row.streak,
     dreamCode: row.dream_code,
+    emoji: row.emoji ?? null,
   }
 }
