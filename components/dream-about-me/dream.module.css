@@ -1,0 +1,164 @@
+.shell {
+  --dream-bg: #3a1219;
+  --dream-night: #14060a;
+  --dream-pink: #f2b8c4;
+  --dream-pink-dim: rgba(242, 184, 196, 0.42);
+  --dream-forest: #1d3a30;
+  --dream-forest-soft: #7d9e90;
+  background: #3a1219;
+  color: #f2b8c4;
+  font-family: "IM Fell French Canon", "Iowan Old Style", Georgia, serif;
+  font-size: 2.15rem;
+  font-style: normal;
+  font-weight: 400;
+  font-variant: normal;
+  font-synthesis: none;
+  letter-spacing: normal;
+  line-height: 1.15;
+  min-height: 100dvh;
+  min-height: 100vh;
+  overscroll-behavior: none;
+}
+
+.shell * {
+  font-family: inherit;
+  font-size: inherit;
+  font-style: inherit;
+  font-weight: inherit;
+  font-variant: inherit;
+  letter-spacing: inherit;
+  line-height: inherit;
+}
+
+.frame {
+  min-height: 100dvh;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  box-sizing: border-box;
+  background: #3a1219;
+}
+
+.box {
+  width: max-content;
+  max-width: min(16em, calc(100vw - 2.5rem));
+  text-align: center;
+}
+
+.box > * {
+  display: block;
+  margin: 0;
+}
+
+.shellNight {
+  background: #14060a;
+}
+
+.frameNight {
+  background: #14060a;
+}
+
+.scroller {
+  overflow-y: auto;
+  scroll-snap-type: y mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  overscroll-behavior: contain;
+}
+
+.scroller::-webkit-scrollbar {
+  display: none;
+}
+
+.picker {
+  height: 3.45em;
+  overflow: hidden;
+}
+
+.timePad,
+.timeItem {
+  height: 1.15em;
+}
+
+.timeItem {
+  scroll-snap-align: center;
+  scroll-snap-stop: always;
+  cursor: pointer;
+  text-align: center;
+}
+
+.btn {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  display: block;
+  width: 100%;
+  text-align: inherit;
+  -webkit-tap-highlight-color: transparent;
+  transition: opacity 0.6s ease, color 0.6s ease;
+}
+
+.btn:hover {
+  opacity: 0.72;
+}
+
+.btn:focus-visible {
+  outline: none;
+  text-decoration: underline;
+  text-underline-offset: 0.35em;
+}
+
+.btn:disabled {
+  opacity: 0.28;
+  cursor: default;
+}
+
+.field {
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--dream-forest-soft);
+  color: var(--dream-pink);
+  font: inherit;
+  padding: 0;
+  outline: none;
+  caret-color: var(--dream-pink);
+  resize: none;
+  min-height: 2.3em;
+}
+
+.field::placeholder {
+  color: var(--dream-pink-dim);
+}
+
+.thumb {
+  width: 100px;
+  height: 100px;
+  object-fit: cover;
+  display: block;
+  margin: 0 auto;
+}
+
+.box > .emojiGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.12em 0.28em;
+  width: 100%;
+  margin: 0.35em 0 0.15em;
+}
+
+.emojiCell {
+  font-size: 0.82em;
+  line-height: 1.2;
+}
+
+.keyLine {
+  font-size: 1.2em;
+  letter-spacing: 0.18em;
+}

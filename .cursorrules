@@ -1,0 +1,12 @@
+# Dream About Me
+
+- Next.js 15 Pages Router + App Router API routes
+- React 19, TypeScript, pnpm
+- Tailwind only when it is already there; the product look lives in `dream.module.css`
+- Do not redesign the UI
+- Do not add features unless asked
+- Do not use email / OAuth / password fields
+- Do not store the raw 3-emoji private key on `profiles`
+- Do not touch Gettles/Glog/Firebase
+- `pnpm dev` is port 3001. Do not kill port 3000.
+- `@vercel/analytics` lives in `pages/_app.tsx`. Do not add another `<Analytics />`.

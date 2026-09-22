@@ -1,0 +1,654 @@
+import type { ReactNode } from "react"
+import type { GalleryItem, Person } from "@/lib/dream-about-me"
+import { PRIVATE_KEY_EMOJIS, PRIVATE_KEY_LENGTH } from "@/lib/dream-auth"
+import { TimePicker } from "./TimePicker"
+import { VideoEmbed } from "./VideoEmbed"
+import styles from "./dream.module.css"
+
+export function TextBtn({
+  children,
+  onClick,
+  dim,
+  forest,
+  disabled,
+}: {
+  children: ReactNode
+  onClick?: () => void
+  dim?: boolean
+  forest?: boolean
+  disabled?: boolean
+}) {
+  return (
+    <button
+      type="button"
+      className={styles.btn}
+      onClick={onClick}
+      disabled={disabled}
+      style={{
+        color: forest ? "var(--dream-forest-soft)" : undefined,
+        opacity: dim ? 0.45 : undefined,
+      }}
+    >
+      {children}
+    </button>
+  )
+}
+
+export function Screen({
+  children,
+  night,
+}: {
+  children: ReactNode
+  night?: boolean
+}) {
+  return (
+    <div className={`${styles.frame} ${night ? styles.frameNight : ""}`}>
+      <div className={styles.box}>{children}</div>
+    </div>
+  )
+}
+
+export function LandingScreen({
+  onNew,
+  onExisting,
+}: {
+  onNew: () => void
+  onExisting: () => void
+}) {
+  return (
+    <Screen>
+      <p style={{ color: "var(--dream-forest-soft)" }}>time to dream</p>
+      <h1>dream about me</h1>
+      <TextBtn forest onClick={onNew}>
+        new person
+      </TextBtn>
+      <TextBtn dim onClick={onExisting}>
+        already have an account
+      </TextBtn>
+    </Screen>
+  )
+}
+
+export function NameScreen({
+  name,
+  error,
+  onName,
+  onContinue,
+  onBack,
+}: {
+  name: string
+  error?: string
+  onName: (value: string) => void
+  onContinue: () => void
+  onBack: () => void
+}) {
+  return (
+    <Screen>
+      <TextBtn dim onClick={onBack}>
+        back
+      </TextBtn>
+      <h1>what&apos;s your name?</h1>
+      <input
+        className={styles.field}
+        value={name}
+        onChange={(e) => onName(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && name.trim()) onContinue()
+        }}
+        autoFocus
+        autoComplete="off"
+        autoCorrect="off"
+        autoCapitalize="off"
+        spellCheck={false}
+        maxLength={40}
+        name="dream-first-name"
+        inputMode="text"
+      />
+      {error && <p style={{ color: "var(--dream-pink-dim)" }}>{error}</p>}
+      <TextBtn forest onClick={onContinue} disabled={!name.trim()}>
+        continue
+      </TextBtn>
+    </Screen>
+  )
+}
+
+export function PrivateKeyScreen({
+  picked,
+  returning,
+  busy,
+  error,
+  onPick,
+  onUndo,
+  onContinue,
+  onBack,
+}: {
+  picked: string[]
+  returning?: boolean
+  busy?: boolean
+  error?: string
+  onPick: (emoji: string) => void
+  onUndo: () => void
+  onContinue: () => void
+  onBack: () => void
+}) {
+  const ready = picked.length === PRIVATE_KEY_LENGTH
+  return (
+    <Screen>
+      <TextBtn dim onClick={onBack}>
+        back
+      </TextBtn>
+      <h1>{returning ? "your private key" : "choose your private key"}</h1>
+      <p style={{ color: "var(--dream-pink-dim)" }}>three things. order matters.</p>
+      {picked.length > 0 && (
+        <button type="button" className={`${styles.btn} ${styles.keyLine}`} onClick={onUndo}>
+          {picked.join(" ")}
+        </button>
+      )}
+      <div className={styles.emojiGrid}>
+        {PRIVATE_KEY_EMOJIS.map((emoji) => (
+          <button
+            key={emoji}
+            type="button"
+            className={`${styles.btn} ${styles.emojiCell}`}
+            onClick={() => onPick(emoji)}
+            disabled={ready || busy}
+            aria-label={emoji}
+          >
+            {emoji}
+          </button>
+        ))}
+      </div>
+      {error && <p style={{ color: "var(--dream-pink-dim)" }}>{error}</p>}
+      <TextBtn forest onClick={onContinue} disabled={!ready || busy}>
+        continue
+      </TextBtn>
+    </Screen>
+  )
+}
+
+export function PrivateKeyConfirmScreen({
+  picked,
+  busy,
+  error,
+  onContinue,
+  onBack,
+}: {
+  picked: string[]
+  busy?: boolean
+  error?: string
+  onContinue: () => void
+  onBack: () => void
+}) {
+  return (
+    <Screen>
+      <p className={styles.keyLine}>{picked.join(" ")}</p>
+      <p>this is your private key.</p>
+      <p>remember it.</p>
+      {error && <p style={{ color: "var(--dream-pink-dim)" }}>{error}</p>}
+      <TextBtn forest onClick={onContinue} disabled={busy}>
+        continue
+      </TextBtn>
+      <TextBtn dim onClick={onBack} disabled={busy}>
+        back
+      </TextBtn>
+    </Screen>
+  )
+}
+
+export function OnboardingScreen({
+  bedtime,
+  onBedtime,
+  notiLabel,
+  onNotis,
+  onContinue,
+}: {
+  bedtime: string
+  onBedtime: (value: string) => void
+  notiLabel: string
+  onNotis: () => void
+  onContinue: () => void
+}) {
+  return (
+    <Screen>
+      <h1>what time do you go to bed?</h1>
+      <p style={{ color: "var(--dream-pink-dim)" }}>you will get a noti at this time.</p>
+      <TimePicker value={bedtime} onChange={onBedtime} />
+      <TextBtn dim onClick={onNotis}>
+        {notiLabel}
+      </TextBtn>
+      <TextBtn forest onClick={onContinue}>
+        continue
+      </TextBtn>
+    </Screen>
+  )
+}
+
+export function AddFields({
+  mode,
+  quote,
+  video,
+  onQuote,
+  onVideo,
+  onSave,
+  onCancel,
+}: {
+  mode: "quote" | "video"
+  quote: string
+  video: string
+  onQuote: (value: string) => void
+  onVideo: (value: string) => void
+  onSave: () => void
+  onCancel: () => void
+}) {
+  return (
+    <>
+      {mode === "quote" ? (
+        <textarea
+          className={styles.field}
+          placeholder="write a little something"
+          value={quote}
+          onChange={(e) => onQuote(e.target.value)}
+          autoFocus
+        />
+      ) : (
+        <input
+          className={styles.field}
+          placeholder="youtube, tiktok, or instagram link"
+          value={video}
+          onChange={(e) => onVideo(e.target.value)}
+          autoFocus
+          inputMode="url"
+          autoCapitalize="off"
+          autoCorrect="off"
+        />
+      )}
+      <TextBtn dim onClick={onCancel}>
+        nevermind
+      </TextBtn>
+      <TextBtn forest onClick={onSave} disabled={mode === "quote" ? !quote.trim() : !video.trim()}>
+        add
+      </TextBtn>
+    </>
+  )
+}
+
+export function GallerySetupScreen({
+  items,
+  addMode,
+  quote,
+  video,
+  onQuote,
+  onVideo,
+  onAddImage,
+  onChooseQuote,
+  onChooseVideo,
+  onSaveAdd,
+  onCancelAdd,
+  onContinue,
+}: {
+  items: GalleryItem[]
+  addMode: "quote" | "video" | null
+  quote: string
+  video: string
+  onQuote: (value: string) => void
+  onVideo: (value: string) => void
+  onAddImage: () => void
+  onChooseQuote: () => void
+  onChooseVideo: () => void
+  onSaveAdd: () => void
+  onCancelAdd: () => void
+  onContinue: () => void
+}) {
+  return (
+    <Screen>
+      <h1>your gallery</h1>
+      <p style={{ color: "var(--dream-pink-dim)" }}>
+        add things you&apos;d want to see before you fall asleep.
+      </p>
+      {addMode ? (
+        <AddFields
+          mode={addMode}
+          quote={quote}
+          video={video}
+          onQuote={onQuote}
+          onVideo={onVideo}
+          onSave={onSaveAdd}
+          onCancel={onCancelAdd}
+        />
+      ) : (
+        <>
+          {items.map((item) => (
+            <GalleryLine key={item.id} item={item} />
+          ))}
+          <TextBtn onClick={onAddImage}>add an image</TextBtn>
+          <TextBtn onClick={onChooseQuote}>add a quote</TextBtn>
+          <TextBtn onClick={onChooseVideo}>add a video link</TextBtn>
+          <TextBtn forest onClick={onContinue}>
+            continue
+          </TextBtn>
+        </>
+      )}
+    </Screen>
+  )
+}
+
+function GalleryLine({ item }: { item: GalleryItem }) {
+  if (item.kind === "image" && item.imageUrl) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src={item.imageUrl} alt="" className={styles.thumb} />
+    )
+  }
+  if (item.kind === "video" && item.videoUrl) {
+    return (
+      <div className={styles.thumb} style={{ background: "var(--dream-forest)" }}>
+        <VideoEmbed url={item.videoUrl} variant="tile" />
+      </div>
+    )
+  }
+  return <p>{item.quote}</p>
+}
+
+export function HomeScreen({
+  streak,
+  onSend,
+  onReceive,
+}: {
+  streak: number
+  onSend: () => void
+  onReceive: () => void
+}) {
+  const nights = streak === 1 ? "1 night" : `${streak} nights`
+  return (
+    <Screen>
+      <p>dream about me</p>
+      <TextBtn onClick={onSend}>send a dream</TextBtn>
+      <TextBtn onClick={onReceive}>receive a dream</TextBtn>
+      <p style={{ color: "var(--dream-pink-dim)" }}>{nights}</p>
+    </Screen>
+  )
+}
+
+function personNote(person: Person): string | null {
+  if (person.status === "pending-out") return "waiting to accept"
+  if (person.status === "pending-in") return "wants to connect"
+  if (person.sentStatus === "waiting") return "waiting for bedtime"
+  if (person.sentStatus === "seen") return "saw it"
+  return null
+}
+
+export function ChoosePersonScreen({
+  people,
+  onBack,
+  onPick,
+  onInvite,
+  onAccept,
+}: {
+  people: Person[]
+  onBack: () => void
+  onPick: (person: Person | "me") => void
+  onInvite: () => void
+  onAccept: (person: Person) => void
+}) {
+  const connected = people.filter((p) => p.status === "connected")
+  const pending = people.filter((p) => p.status !== "connected")
+
+  return (
+    <Screen>
+      <TextBtn dim onClick={onBack}>
+        back
+      </TextBtn>
+      <h1>who is it for?</h1>
+      <TextBtn onClick={() => onPick("me")}>me</TextBtn>
+      {connected.map((person) => (
+        <div key={person.id}>
+          <TextBtn onClick={() => onPick(person)}>{person.name}</TextBtn>
+          {personNote(person) && (
+            <p style={{ color: "var(--dream-pink-dim)" }}>{personNote(person)}</p>
+          )}
+        </div>
+      ))}
+      {pending.map((person) => (
+        <div key={person.id}>
+          <p className="opacity-50">{person.name}</p>
+          <p style={{ color: "var(--dream-pink-dim)" }}>{personNote(person)}</p>
+          {person.status === "pending-in" && (
+            <TextBtn forest onClick={() => onAccept(person)}>
+              accept
+            </TextBtn>
+          )}
+        </div>
+      ))}
+      <TextBtn dim onClick={onInvite}>
+        invite someone
+      </TextBtn>
+    </Screen>
+  )
+}
+
+export function InviteScreen({
+  link,
+  copied,
+  onCopy,
+  onBack,
+}: {
+  link: string
+  copied: boolean
+  onCopy: () => void
+  onBack: () => void
+}) {
+  return (
+    <Screen>
+      <TextBtn dim onClick={onBack}>
+        back
+      </TextBtn>
+      <h1>invite someone</h1>
+      <p style={{ color: "var(--dream-pink-dim)" }}>
+        they have to accept before you can send them a dream.
+      </p>
+      <p className="break-all">{link}</p>
+      <TextBtn forest onClick={onCopy}>
+        {copied ? "copied" : "copy invite"}
+      </TextBtn>
+    </Screen>
+  )
+}
+
+export function AcceptInviteScreen({
+  name,
+  onAccept,
+  onSkip,
+}: {
+  name: string
+  onAccept: () => void
+  onSkip: () => void
+}) {
+  return (
+    <Screen>
+      <h1>{name} wants to send you dreams</h1>
+      <TextBtn forest onClick={onAccept}>
+        accept
+      </TextBtn>
+      <TextBtn dim onClick={onSkip}>
+        not now
+      </TextBtn>
+    </Screen>
+  )
+}
+
+export function GalleryPickScreen({
+  items,
+  selectedId,
+  addMode,
+  quote,
+  video,
+  canSend,
+  onBack,
+  onSelect,
+  onDelete,
+  onAddImage,
+  onChooseQuote,
+  onChooseVideo,
+  onQuote,
+  onVideo,
+  onSaveAdd,
+  onCancelAdd,
+  onSend,
+}: {
+  items: GalleryItem[]
+  selectedId: string | null
+  addMode: "quote" | "video" | null
+  quote: string
+  video: string
+  canSend: boolean
+  onBack: () => void
+  onSelect: (item: GalleryItem) => void
+  onDelete: (item: GalleryItem) => void
+  onAddImage: () => void
+  onChooseQuote: () => void
+  onChooseVideo: () => void
+  onQuote: (value: string) => void
+  onVideo: (value: string) => void
+  onSaveAdd: () => void
+  onCancelAdd: () => void
+  onSend: () => void
+}) {
+  return (
+    <Screen>
+      <TextBtn dim onClick={onBack}>
+        back
+      </TextBtn>
+      <h1>pick a dream</h1>
+      <p style={{ color: "var(--dream-pink-dim)" }}>
+        it&apos;ll be the last thing they see before they go to bed
+      </p>
+      {addMode ? (
+        <AddFields
+          mode={addMode}
+          quote={quote}
+          video={video}
+          onQuote={onQuote}
+          onVideo={onVideo}
+          onSave={onSaveAdd}
+          onCancel={onCancelAdd}
+        />
+      ) : (
+        <>
+          {items.length === 0 && (
+            <p style={{ color: "var(--dream-pink-dim)" }}>nothing in your gallery yet.</p>
+          )}
+          {items.map((item) => (
+            <GalleryTile
+              key={item.id}
+              item={item}
+              selected={item.id === selectedId}
+              onSelect={() => onSelect(item)}
+              onDelete={() => onDelete(item)}
+            />
+          ))}
+          <TextBtn onClick={onAddImage}>add an image</TextBtn>
+          <TextBtn onClick={onChooseQuote}>add a quote</TextBtn>
+          <TextBtn onClick={onChooseVideo}>add a video link</TextBtn>
+          <TextBtn forest onClick={onSend} disabled={!canSend}>
+            send dream
+          </TextBtn>
+        </>
+      )}
+    </Screen>
+  )
+}
+
+function GalleryTile({
+  item,
+  selected,
+  onSelect,
+  onDelete,
+}: {
+  item: GalleryItem
+  selected: boolean
+  onSelect: () => void
+  onDelete: () => void
+}) {
+  return (
+    <>
+      <button
+        type="button"
+        className={styles.btn}
+        onClick={onSelect}
+        style={{ opacity: selected ? 1 : 0.48 }}
+      >
+        {item.kind === "image" && item.imageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={item.imageUrl} alt="" className={styles.thumb} />
+        ) : item.kind === "video" && item.videoUrl ? (
+          <div className={styles.thumb} style={{ background: "var(--dream-forest)", margin: "0 auto" }}>
+            <VideoEmbed url={item.videoUrl} variant="tile" />
+          </div>
+        ) : (
+          <p>{item.quote}</p>
+        )}
+      </button>
+      <TextBtn dim onClick={onDelete}>
+        delete
+      </TextBtn>
+    </>
+  )
+}
+
+export function DreamSentScreen({ onDone }: { onDone: () => void }) {
+  return (
+    <Screen>
+      <h1>dream sent</h1>
+      <p style={{ color: "var(--dream-pink-dim)" }}>they won&apos;t see it until they go to bed.</p>
+      <TextBtn dim onClick={onDone}>
+        okay
+      </TextBtn>
+    </Screen>
+  )
+}
+
+export function BedtimeGateScreen({
+  onYes,
+  onNotYet,
+}: {
+  onYes: () => void
+  onNotYet: () => void
+}) {
+  return (
+    <Screen night>
+      <h1>are you going to bed?</h1>
+      <TextBtn forest onClick={onYes}>
+        yes
+      </TextBtn>
+      <TextBtn dim onClick={onNotYet}>
+        not yet
+      </TextBtn>
+    </Screen>
+  )
+}
+
+export function RevealScreen({
+  item,
+  fromName,
+  onGoodnight,
+}: {
+  item: GalleryItem | null
+  fromName?: string
+  onGoodnight: () => void
+}) {
+  return (
+    <Screen night>
+      {fromName && <p style={{ color: "var(--dream-forest-soft)" }}>from {fromName}</p>}
+      {!item && <p>nothing tonight.</p>}
+      {item?.kind === "quote" && <p>{item.quote}</p>}
+      {item?.kind === "image" && item.imageUrl && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={item.imageUrl} alt="" className={styles.thumb} />
+      )}
+      {item?.kind === "video" && item.videoUrl && <VideoEmbed url={item.videoUrl} variant="full" />}
+      <TextBtn dim onClick={onGoodnight}>
+        goodnight
+      </TextBtn>
+    </Screen>
+  )
+}
