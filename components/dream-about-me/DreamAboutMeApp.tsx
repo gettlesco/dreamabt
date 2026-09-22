@@ -2,7 +2,24 @@ import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/router"
 import { DEFAULT_BEDTIME, newId, type GalleryItem, type PendingDream, type Person } from "@/lib/dream-about-me"
 import { PRIVATE_KEY_LENGTH, displayName } from "@/lib/dream-auth"
-import { persistDreamProfile, postDreamAuth, restoreDreamSession } from "@/lib/dream-supabase"
+import {
+  persistDreamProfile,
+  persistPushSubscription,
+  postDreamAuth,
+  restoreDreamSession,
+  signOutDreamSession,
+} from "@/lib/dream-supabase"
+import {
+  iosWebContext,
+  localTimeZone,
+  onboardingNotiHint,
+  onboardingNotiLabel,
+  pushSupported,
+  registerDreamWorker,
+  showDreamNotification,
+  subscribeDreamPush,
+  type IosWebContext,
+} from "@/lib/dream-pwa"
 import {
   AcceptInviteScreen,
   BedtimeGateScreen,
@@ -53,6 +70,7 @@ export function DreamAboutMeApp() {
   const [busy, setBusy] = useState(false)
   const [bedtime, setBedtime] = useState(DEFAULT_BEDTIME)
   const [notiLabel, setNotiLabel] = useState("turn on notis")
+  const [installCtx, setInstallCtx] = useState<IosWebContext | null>(null)
   const [gallery, setGallery] = useState<GalleryItem[]>([])
   const [people, setPeople] = useState<Person[]>([])
   const [pending, setPending] = useState<PendingDream | null>(null)
@@ -86,9 +104,20 @@ export function DreamAboutMeApp() {
   }, [])
 
   useEffect(() => {
+    const ctx = iosWebContext()
+    setInstallCtx(ctx)
+    if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+      setNotiLabel("notis on")
+      return
+    }
+    if (screen === "onboarding" || screen === "home") setNotiLabel(onboardingNotiLabel(ctx))
+  }, [screen])
+
+  useEffect(() => {
     if (!router.isReady) return
     let cancelled = false
     const invite = router.query.invite
+    const receive = router.query.receive
     void restoreDreamSession()
       .then((profile) => {
         if (cancelled) return
@@ -96,11 +125,17 @@ export function DreamAboutMeApp() {
           setName(profile.name)
           if (profile.bedtime) setBedtime(profile.bedtime)
           setStreak(profile.streak)
+          if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+            setNotiLabel("notis on")
+            void syncPushSubscription()
+          }
         }
         if (invite != null) {
           const raw = Array.isArray(invite) ? invite[0] : invite
           setInviteName(raw && raw !== "1" ? raw : "macy")
           setScreen("accept")
+        } else if (receive != null && profile) {
+          setScreen("bedtime")
         } else if (profile) {
           setScreen("home")
         }
@@ -112,7 +147,7 @@ export function DreamAboutMeApp() {
     return () => {
       cancelled = true
     }
-  }, [router.isReady, router.query.invite])
+  }, [router.isReady, router.query.invite, router.query.receive])
 
   function resetAuth() {
     setAuthError("")
@@ -124,6 +159,26 @@ export function DreamAboutMeApp() {
     resetAuth()
     setName("")
     setAuthMode("new")
+    setScreen("landing")
+  }
+
+  async function logOut() {
+    await signOutDreamSession()
+    resetAuth()
+    setName("")
+    setAuthMode("new")
+    setBedtime(DEFAULT_BEDTIME)
+    setNotiLabel("turn on notis")
+    setGallery([])
+    setPeople([])
+    setPending(null)
+    setStreak(0)
+    setAddMode(null)
+    setDraftQuote("")
+    setDraftVideo("")
+    setSendTo(null)
+    setSelectedId(null)
+    setRevealed(null)
     setScreen("landing")
   }
 
@@ -166,16 +221,45 @@ export function DreamAboutMeApp() {
     setScreen(authMode === "new" ? "onboarding" : "home")
   }
 
-  function requestNotis() {
+  async function syncPushSubscription() {
+    const registration = await registerDreamWorker()
+    if (!registration) return
+    await navigator.serviceWorker.ready
+    const subscription = await subscribeDreamPush(registration)
+    if (subscription) await persistPushSubscription(subscription, localTimeZone())
+  }
+
+  async function requestNotis() {
+    const ctx = iosWebContext()
+    setInstallCtx(ctx)
+    if (ctx === "other") {
+      setNotiLabel("share / ••• → open in safari")
+      return
+    }
+    if (ctx === "safari") {
+      setNotiLabel("share → add to home screen")
+      return
+    }
     if (typeof window === "undefined" || !("Notification" in window)) {
       setNotiLabel("notis aren't available")
       return
     }
-    void Notification.requestPermission().then((perm) => {
-      if (perm === "granted") setNotiLabel("notis on")
-      else if (perm === "denied") setNotiLabel("notis blocked")
-      else setNotiLabel("turn on notis")
-    })
+    if (!pushSupported()) {
+      setNotiLabel("notis aren't available")
+      return
+    }
+    const perm = await Notification.requestPermission()
+    if (perm !== "granted") {
+      setNotiLabel(perm === "denied" ? "notis blocked" : "turn on notis")
+      return
+    }
+    const registration = await registerDreamWorker()
+    if (registration) {
+      await navigator.serviceWorker.ready
+      await syncPushSubscription()
+      await showDreamNotification(registration)
+    }
+    setNotiLabel("notis on")
   }
 
   function openImagePicker(target: "setup" | "pick") {
@@ -349,10 +433,14 @@ export function DreamAboutMeApp() {
           bedtime={bedtime}
           onBedtime={setBedtime}
           notiLabel={notiLabel}
+          notiHint={onboardingNotiHint(installCtx)}
           onNotis={requestNotis}
           onContinue={() => {
-            void persistDreamProfile({ bedtime })
-            setScreen("gallery-setup")
+            void (async () => {
+              await requestNotis()
+              void persistDreamProfile({ bedtime })
+              setScreen("gallery-setup")
+            })()
           }}
         />
       )}
@@ -385,8 +473,10 @@ export function DreamAboutMeApp() {
       {screen === "home" && (
         <HomeScreen
           streak={streak}
+          notiLabel={notiLabel}
           onSend={() => setScreen("choose-person")}
           onReceive={() => setScreen("bedtime")}
+          onNotis={requestNotis}
         />
       )}
       {screen === "choose-person" && (
@@ -459,6 +549,9 @@ export function DreamAboutMeApp() {
           onGoodnight={() => setScreen("home")}
         />
       )}
+      <button type="button" className={`${styles.btn} ${styles.logout}`} onClick={() => void logOut()}>
+        log out
+      </button>
     </div>
   )
 }

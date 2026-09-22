@@ -1,0 +1,17 @@
+name: dream bedtime notis
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+jobs:
+  tick:
+    if: ${{ secrets.CRON_SECRET != '' && secrets.DREAM_PUSH_URL != '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: ping bedtime tick
+        run: |
+          curl -fsS -X POST \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.DREAM_PUSH_URL }}/api/dream/push/tick"

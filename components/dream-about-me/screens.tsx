@@ -1,4 +1,4 @@
-import type { ReactNode } from "react"
+import { useState, type ReactNode } from "react"
 import type { GalleryItem, Person } from "@/lib/dream-about-me"
 import { PRIVATE_KEY_EMOJIS, PRIVATE_KEY_LENGTH } from "@/lib/dream-auth"
 import { TimePicker } from "./TimePicker"
@@ -179,12 +179,26 @@ export function PrivateKeyConfirmScreen({
   onContinue: () => void
   onBack: () => void
 }) {
+  const [copied, setCopied] = useState(false)
+
+  function copyKey() {
+    const text = `${picked.join(" ")} dreamabt.me key, dream about me password`
+    if (typeof navigator === "undefined" || !navigator.clipboard) return
+    void navigator.clipboard.writeText(text).then(() => {
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 1800)
+    })
+  }
+
   return (
     <Screen>
       <p className={styles.keyLine}>{picked.join(" ")}</p>
       <p>this is your private key.</p>
       <p>remember it.</p>
       {error && <p style={{ color: "var(--dream-pink-dim)" }}>{error}</p>}
+      <TextBtn dim onClick={copyKey} disabled={busy}>
+        {copied ? "copied" : "copy"}
+      </TextBtn>
       <TextBtn forest onClick={onContinue} disabled={busy}>
         continue
       </TextBtn>
@@ -199,19 +213,21 @@ export function OnboardingScreen({
   bedtime,
   onBedtime,
   notiLabel,
+  notiHint = "you will get a noti at this time.",
   onNotis,
   onContinue,
 }: {
   bedtime: string
   onBedtime: (value: string) => void
   notiLabel: string
+  notiHint?: string
   onNotis: () => void
   onContinue: () => void
 }) {
   return (
     <Screen>
       <h1>what time do you go to bed?</h1>
-      <p style={{ color: "var(--dream-pink-dim)" }}>you will get a noti at this time.</p>
+      <p style={{ color: "var(--dream-pink-dim)" }}>{notiHint}</p>
       <TimePicker value={bedtime} onChange={onBedtime} />
       <TextBtn dim onClick={onNotis}>
         {notiLabel}
@@ -351,19 +367,29 @@ function GalleryLine({ item }: { item: GalleryItem }) {
 
 export function HomeScreen({
   streak,
+  notiLabel,
   onSend,
   onReceive,
+  onNotis,
 }: {
   streak: number
+  notiLabel?: string
   onSend: () => void
   onReceive: () => void
+  onNotis?: () => void
 }) {
   const nights = streak === 1 ? "1 night" : `${streak} nights`
+  const showNotis = Boolean(onNotis && notiLabel && notiLabel !== "notis on")
   return (
     <Screen>
       <p>dream about me</p>
       <TextBtn onClick={onSend}>send a dream</TextBtn>
       <TextBtn onClick={onReceive}>receive a dream</TextBtn>
+      {showNotis && (
+        <TextBtn dim onClick={onNotis}>
+          {notiLabel}
+        </TextBtn>
+      )}
       <p style={{ color: "var(--dream-pink-dim)" }}>{nights}</p>
     </Screen>
   )

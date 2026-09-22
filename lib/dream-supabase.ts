@@ -70,6 +70,52 @@ export async function restoreDreamSession(): Promise<DreamProfile | null> {
   }
 }
 
+export async function persistPushSubscription(
+  subscription: PushSubscription,
+  timezone: string,
+): Promise<boolean> {
+  const json = subscription.toJSON()
+  const endpoint = json.endpoint
+  const p256dh = json.keys?.p256dh
+  const auth = json.keys?.auth
+  if (!endpoint || !p256dh || !auth) return false
+
+  const supabase = getDreamBrowserClient()
+  if (!supabase) return false
+  const { data: sessionData } = await supabase.auth.getSession()
+  if (!sessionData.session) return false
+
+  const row = {
+    user_id: sessionData.session.user.id,
+    endpoint,
+    p256dh,
+    auth,
+    timezone,
+  }
+  const direct = await supabase.from("push_subscriptions").upsert(row, { onConflict: "endpoint" })
+  if (!direct.error) return true
+
+  try {
+    const res = await fetch("/api/dream/push/subscribe", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${sessionData.session.access_token}`,
+      },
+      body: JSON.stringify({ endpoint, keys: { p256dh, auth }, timezone }),
+    })
+    return res.ok
+  } catch {
+    return false
+  }
+}
+
+export async function signOutDreamSession(): Promise<void> {
+  const supabase = getDreamBrowserClient()
+  if (!supabase) return
+  await supabase.auth.signOut()
+}
+
 export async function persistDreamProfile(patch: {
   bedtime?: string
   streak?: number

@@ -80,54 +80,54 @@ export async function handleDreamAuth(request: Request, action: DreamAuthAction)
   const { email, password } = deriveSyntheticAuth(parsed.nameNormalized, parsed.key)
   const supabase = createDreamServerClient()
 
+  let session = null as Awaited<
+    ReturnType<typeof supabase.auth.signInWithPassword>
+  >["data"]["session"]
+  let user = null as Awaited<
+    ReturnType<typeof supabase.auth.signInWithPassword>
+  >["data"]["user"]
+
   if (action === "signup") {
     const signed = await supabase.auth.signUp({
       email,
       password,
       options: { data: { name: parsed.name } },
     })
-    if (signed.error || !signed.data.session || !signed.data.user) {
-      if (signed.error) console.error("[dream/signup]", signed.error.message)
-      return authFail()
+    if (signed.data.session && signed.data.user) {
+      session = signed.data.session
+      user = signed.data.user
+    } else if (signed.error) {
+      console.error("[dream/signup]", signed.error.message)
     }
-    await supabase.auth.setSession({
-      access_token: signed.data.session.access_token,
-      refresh_token: signed.data.session.refresh_token,
-    })
-    const profile = await loadOrCreateProfile(
-      supabase,
-      signed.data.user.id,
-      parsed.name,
-      parsed.nameNormalized,
-    )
-    if (!profile) return authFail()
-    return sessionPayload(
-      signed.data.session.access_token,
-      signed.data.session.refresh_token,
-      signed.data.session.expires_in,
-      readProfileRow(profile),
-    )
   }
 
-  const signed = await supabase.auth.signInWithPassword({ email, password })
-  if (signed.error || !signed.data.session || !signed.data.user) {
-    return authFail()
+  if (!session || !user) {
+    const signed = await supabase.auth.signInWithPassword({ email, password })
+    if (signed.error || !signed.data.session || !signed.data.user) {
+      return authFail()
+    }
+    session = signed.data.session
+    user = signed.data.user
   }
+
   await supabase.auth.setSession({
-    access_token: signed.data.session.access_token,
-    refresh_token: signed.data.session.refresh_token,
+    access_token: session.access_token,
+    refresh_token: session.refresh_token,
   })
   const profile = await loadOrCreateProfile(
     supabase,
-    signed.data.user.id,
+    user.id,
     parsed.name,
     parsed.nameNormalized,
   )
-  if (!profile) return authFail()
+  if (!profile) {
+    console.error("[dream/auth] profile missing after session")
+    return authFail()
+  }
   return sessionPayload(
-    signed.data.session.access_token,
-    signed.data.session.refresh_token,
-    signed.data.session.expires_in,
+    session.access_token,
+    session.refresh_token,
+    session.expires_in,
     readProfileRow(profile),
   )
 }
