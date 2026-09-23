@@ -116,6 +116,31 @@ export function NameScreen({
   )
 }
 
+function EmojiSetGrid({
+  disabled,
+  onPick,
+}: {
+  disabled?: boolean
+  onPick: (emoji: string) => void
+}) {
+  return (
+    <div className={styles.emojiGrid}>
+      {PRIVATE_KEY_EMOJIS.map((emoji) => (
+        <button
+          key={emoji}
+          type="button"
+          className={`${styles.btn} ${styles.emojiCell}`}
+          onClick={() => onPick(emoji)}
+          disabled={disabled}
+          aria-label={emoji}
+        >
+          {emoji}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 export function PrivateKeyScreen({
   picked,
   returning,
@@ -145,25 +170,13 @@ export function PrivateKeyScreen({
       </TextBtn>
       <h1>{title ?? (returning ? "your private key" : "choose your private key")}</h1>
       <p style={{ color: "var(--dream-pink-dim)" }}>three things. order matters.</p>
-      {picked.length > 0 && (
-        <button type="button" className={`${styles.btn} ${styles.keyLine}`} onClick={onUndo}>
-          {picked.join(" ")}
-        </button>
-      )}
-      <div className={styles.emojiGrid}>
-        {PRIVATE_KEY_EMOJIS.map((emoji) => (
-          <button
-            key={emoji}
-            type="button"
-            className={`${styles.btn} ${styles.emojiCell}`}
-            onClick={() => onPick(emoji)}
-            disabled={ready || busy}
-            aria-label={emoji}
-          >
-            {emoji}
-          </button>
-        ))}
+      <div className={styles.keySlot}>
+        <p className={styles.keyLine}>{picked.join(" ")}</p>
       </div>
+      <TextBtn onClick={onUndo} disabled={picked.length === 0 || busy}>
+        backspace
+      </TextBtn>
+      <EmojiSetGrid disabled={ready || busy} onPick={onPick} />
       {error && <p style={{ color: "var(--dream-pink-dim)" }}>{error}</p>}
       <TextBtn forest onClick={onContinue} disabled={!ready || busy}>
         continue
@@ -363,21 +376,10 @@ export function EmojiScreen({
       </TextBtn>
       <h1>{title}</h1>
       {hint && <p style={{ color: "var(--dream-pink-dim)" }}>{hint}</p>}
-      {current && <p className={styles.keyLine}>{current}</p>}
-      <div className={styles.emojiGrid}>
-        {PRIVATE_KEY_EMOJIS.map((emoji) => (
-          <button
-            key={emoji}
-            type="button"
-            className={`${styles.btn} ${styles.emojiCell}`}
-            onClick={() => onPick(emoji)}
-            disabled={busy}
-            aria-label={emoji}
-          >
-            {emoji}
-          </button>
-        ))}
+      <div className={styles.keySlot}>
+        <p className={styles.keyLine}>{current || ""}</p>
       </div>
+      <EmojiSetGrid disabled={busy} onPick={onPick} />
       {error && <p style={{ color: "var(--dream-pink-dim)" }}>{error}</p>}
       {onAssign && (
         <TextBtn forest onClick={onAssign} disabled={busy}>

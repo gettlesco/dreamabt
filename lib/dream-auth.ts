@@ -1,7 +1,7 @@
 export const PRIVATE_KEY_LENGTH = 3
 
-/** Provisional. Replace when the final curated private-key grid is provided. */
-export const PRIVATE_KEY_EMOJIS = [
+/** Saved emoji set 1. */
+export const EMOJI_SET_1 = [
   "🌸",
   "🌷",
   "🌹",
@@ -11,7 +11,6 @@ export const PRIVATE_KEY_EMOJIS = [
   "🍎",
   "🍉",
   "🩷",
-  "❤️",
   "🎀",
   "🦩",
   "🐸",
@@ -27,6 +26,72 @@ export const PRIVATE_KEY_EMOJIS = [
   "💚",
   "🪴",
 ].map(normalizeEmoji)
+
+/** Saved emoji set 2. Duplicates of set 1 are not repeated here. */
+export const EMOJI_SET_2 = [
+  "🫍",
+  "🪷",
+  "🐷",
+  "🌳",
+  "🪺",
+  "🪨",
+  "🌼",
+  "🫐",
+  "🥭",
+  "🥟",
+  "🧁",
+  "🍰",
+  "🧊",
+  "🛼",
+  "🩰",
+  "🎪",
+  "🎲",
+  "🎯",
+  "🛻",
+  "🏍️",
+  "💒",
+  "💿",
+  "🧫",
+  "🪭",
+  "🎵",
+  "👙",
+  "👗",
+  "👚",
+  "🩴",
+  "🩱",
+  "🧤",
+  "👛",
+  "👑",
+  "👒",
+  "🐽",
+  "🐦",
+  "🐥",
+  "🪱",
+  "🐙",
+  "🐝",
+  "🐠",
+  "🐖",
+  "🦚",
+  "🌻",
+  "🌝",
+  "🍋‍🟩",
+  "🍈",
+].map(normalizeEmoji)
+
+function mixEmojiSets(first: string[], second: string[]): string[] {
+  const mixed = [...first, ...second]
+  let seed = 3
+  for (let i = mixed.length - 1; i > 0; i--) {
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0
+    const j = seed % (i + 1)
+    const swap = mixed[i]
+    mixed[i] = mixed[j]
+    mixed[j] = swap
+  }
+  return mixed
+}
+
+export const PRIVATE_KEY_EMOJIS = mixEmojiSets(EMOJI_SET_1, EMOJI_SET_2)
 
 const PRIVATE_KEY_SET = new Set(PRIVATE_KEY_EMOJIS)
 
@@ -45,6 +110,12 @@ export type DreamProfile = {
 
 export function normalizeEmoji(raw: string): string {
   return raw.normalize("NFC").replace(/\uFE0E|\uFE0F/g, "")
+}
+
+export function parseEmojiList(raw: string): string[] {
+  return graphemes(raw)
+    .map(normalizeEmoji)
+    .filter((part) => part.trim().length > 0)
 }
 
 function graphemes(value: string): string[] {
