@@ -137,6 +137,17 @@
   color: var(--dream-pink-dim);
 }
 
+.quote {
+  overflow-wrap: anywhere;
+}
+
+.quote a {
+  color: inherit;
+  text-decoration-line: underline;
+  text-underline-offset: 0.18em;
+  text-decoration-thickness: 1px;
+}
+
 .thumb {
   width: 100px;
   height: 100px;

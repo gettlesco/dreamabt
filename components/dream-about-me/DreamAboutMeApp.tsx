@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/router"
-import { DEFAULT_BEDTIME, isHttpUrl, newId, type DreamItem, type PendingDream, type Person } from "@/lib/dream-about-me"
+import { DEFAULT_BEDTIME, newId, type DreamItem, type PendingDream, type Person } from "@/lib/dream-about-me"
 import { PRIVATE_KEY_LENGTH, displayName } from "@/lib/dream-auth"
 import {
   persistDreamProfile,
@@ -72,7 +72,7 @@ type Screen =
 
 type AuthMode = "new" | "return"
 
-type AddMode = "quote" | "video" | null
+type AddMode = "quote" | null
 
 export function DreamAboutMeApp() {
   const router = useRouter()
@@ -91,7 +91,6 @@ export function DreamAboutMeApp() {
   const [streak, setStreak] = useState(0)
   const [addMode, setAddMode] = useState<AddMode>(null)
   const [draftQuote, setDraftQuote] = useState("")
-  const [draftVideo, setDraftVideo] = useState("")
   const [sendTo, setSendTo] = useState<Person | "me" | null>(null)
   const [recipientName, setRecipientName] = useState("")
   const [myEmoji, setMyEmoji] = useState<string | null>(null)
@@ -220,7 +219,6 @@ export function DreamAboutMeApp() {
     setStreak(0)
     setAddMode(null)
     setDraftQuote("")
-    setDraftVideo("")
     setSendTo(null)
     setRecipientName("")
     setMyEmoji(null)
@@ -339,23 +337,12 @@ export function DreamAboutMeApp() {
   }
 
   function saveAdd() {
-    let item: DreamItem | null = null
-    if (addMode === "quote" && draftQuote.trim()) {
-      item = { id: newId(), kind: "quote", quote: draftQuote.trim() }
-    }
-    if (addMode === "video" && draftVideo.trim()) {
-      const url = draftVideo.trim()
-      if (!isHttpUrl(url)) {
-        setAddError("that didn't work.")
-        return
-      }
-      item = { id: newId(), kind: "video", videoUrl: url }
-    }
+    const quote = draftQuote.trim()
+    if (addMode !== "quote" || !quote) return
+    const item: DreamItem = { id: newId(), kind: "quote", quote }
     setAddError("")
     setDraftQuote("")
-    setDraftVideo("")
     setAddMode(null)
-    if (!item) return
     void sendDreamWithItem(item)
   }
 
@@ -687,7 +674,6 @@ export function DreamAboutMeApp() {
           mine={sendTo === "me"}
           addMode={addMode}
           quote={draftQuote}
-          video={draftVideo}
           busy={sending}
           error={sendError}
           addError={addError}
@@ -695,21 +681,17 @@ export function DreamAboutMeApp() {
             setAddMode(null)
             setAddError("")
             setDraftQuote("")
-            setDraftVideo("")
             setSendError("")
             setScreen(sendTo === "me" ? "home" : "send-emoji")
           }}
           onAddImage={() => openImagePicker()}
           onChooseQuote={() => setAddMode("quote")}
-          onChooseVideo={() => setAddMode("video")}
           onQuote={setDraftQuote}
-          onVideo={setDraftVideo}
           onSaveAdd={saveAdd}
           onCancelAdd={() => {
             setAddMode(null)
             setAddError("")
             setDraftQuote("")
-            setDraftVideo("")
           }}
         />
       )}

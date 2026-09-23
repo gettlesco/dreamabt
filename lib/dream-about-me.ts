@@ -25,16 +25,6 @@ export type PendingDream = {
   fromName?: string
 }
 
-export type VideoKind = "youtube" | "tiktok" | "instagram" | "link"
-
-export type ParsedVideo = {
-  kind: VideoKind
-  url: string
-  embedSrc?: string
-  thumbSrc?: string
-  label: string
-}
-
 export const BEDTIMES: string[] = (() => {
   const mins = [0, 15, 30, 45]
   const out: string[] = []
@@ -51,66 +41,6 @@ export const BEDTIMES: string[] = (() => {
 
 export const DEFAULT_BEDTIME = "11:00 pm"
 
-function youtubeHost(hostname: string): boolean {
-  const host = hostname.replace(/^www\./, "")
-  return (
-    host === "youtube.com" ||
-    host === "m.youtube.com" ||
-    host === "music.youtube.com" ||
-    host === "youtube-nocookie.com"
-  )
-}
-
-function youtubeId(url: string): string | null {
-  try {
-    const u = new URL(url)
-    if (u.hostname === "youtu.be") {
-      const id = u.pathname.split("/").filter(Boolean)[0]
-      return id || null
-    }
-    if (youtubeHost(u.hostname)) {
-      if (u.searchParams.get("v")) return u.searchParams.get("v")
-      const parts = u.pathname.split("/").filter(Boolean)
-      if (parts[0] === "embed" || parts[0] === "shorts" || parts[0] === "live") {
-        return parts[1] || null
-      }
-    }
-  } catch {
-    return null
-  }
-  return null
-}
-
-function tiktokId(url: string): string | null {
-  try {
-    const u = new URL(url)
-    const host = u.hostname.replace(/^www\./, "")
-    if (!host.endsWith("tiktok.com")) return null
-    const parts = u.pathname.split("/").filter(Boolean)
-    const videoAt = parts.indexOf("video")
-    if (videoAt >= 0 && parts[videoAt + 1]) return parts[videoAt + 1]
-  } catch {
-    return null
-  }
-  return null
-}
-
-function instagramCode(url: string): string | null {
-  try {
-    const u = new URL(url)
-    const host = u.hostname.replace(/^www\./, "")
-    const normalized = host.replace(/^m\./, "")
-    if (normalized !== "instagram.com" && normalized !== "instagr.am") return null
-    const parts = u.pathname.split("/").filter(Boolean)
-    if ((parts[0] === "p" || parts[0] === "reel" || parts[0] === "reels" || parts[0] === "tv") && parts[1]) {
-      return parts[1]
-    }
-  } catch {
-    return null
-  }
-  return null
-}
-
 export function isHttpUrl(raw: string): boolean {
   try {
     const protocol = new URL(raw.trim()).protocol
@@ -120,37 +50,49 @@ export function isHttpUrl(raw: string): boolean {
   }
 }
 
-export function parseVideoUrl(raw: string): ParsedVideo {
-  const url = raw.trim()
-  const yt = youtubeId(url)
-  if (yt) {
-    return {
-      kind: "youtube",
-      url,
-      embedSrc: `https://www.youtube.com/embed/${yt}`,
-      thumbSrc: `https://i.ytimg.com/vi/${yt}/hqdefault.jpg`,
-      label: "youtube",
-    }
+export type TextPart = { kind: "text" | "link"; value: string }
+
+function peelTrailing(raw: string): { href: string; rest: string } {
+  let href = raw
+  let rest = ""
+  while (href.length > 0 && /[.,!?;:]$/.test(href)) {
+    rest = href.slice(-1) + rest
+    href = href.slice(0, -1)
   }
-  const tk = tiktokId(url)
-  if (tk) {
-    return {
-      kind: "tiktok",
-      url,
-      embedSrc: `https://www.tiktok.com/embed/v2/${tk}`,
-      label: "tiktok",
-    }
+  let open = 0
+  let close = 0
+  for (const ch of href) {
+    if (ch === "(") open += 1
+    else if (ch === ")") close += 1
   }
-  const ig = instagramCode(url)
-  if (ig) {
-    return {
-      kind: "instagram",
-      url,
-      embedSrc: `https://www.instagram.com/p/${ig}/embed`,
-      label: "instagram",
-    }
+  while (close > open && href.endsWith(")")) {
+    rest = `)${rest}`
+    href = href.slice(0, -1)
+    close -= 1
   }
-  return { kind: "link", url: isHttpUrl(url) ? url : "", label: "video" }
+  return { href, rest }
+}
+
+export function linkParts(text: string): TextPart[] {
+  const parts: TextPart[] = []
+  const re = /https?:\/\/[^\s<>"']+/gi
+  let last = 0
+  for (const match of text.matchAll(re)) {
+    const index = match.index ?? 0
+    const raw = match[0]
+    if (index > last) parts.push({ kind: "text", value: text.slice(last, index) })
+    const { href, rest } = peelTrailing(raw)
+    if (isHttpUrl(href)) {
+      parts.push({ kind: "link", value: href })
+      if (rest) parts.push({ kind: "text", value: rest })
+    } else {
+      parts.push({ kind: "text", value: raw })
+    }
+    last = index + raw.length
+  }
+  if (last < text.length) parts.push({ kind: "text", value: text.slice(last) })
+  if (parts.length === 0) parts.push({ kind: "text", value: text })
+  return parts
 }
 
 export function newId(): string {

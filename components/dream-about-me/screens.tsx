@@ -1,8 +1,7 @@
 import { useState, type ReactNode } from "react"
-import type { DreamItem, Person } from "@/lib/dream-about-me"
+import { linkParts, type DreamItem, type Person } from "@/lib/dream-about-me"
 import { PRIVATE_KEY_EMOJIS, PRIVATE_KEY_LENGTH } from "@/lib/dream-auth"
 import { TimePicker } from "./TimePicker"
-import { VideoEmbed } from "./VideoEmbed"
 import styles from "./dream.module.css"
 
 export function TextBtn({
@@ -259,53 +258,34 @@ export function OnboardingScreen({
 }
 
 export function AddFields({
-  mode,
   quote,
-  video,
   error,
   saveLabel,
   onQuote,
-  onVideo,
   onSave,
   onCancel,
 }: {
-  mode: "quote" | "video"
   quote: string
-  video: string
   error?: string
   saveLabel: string
   onQuote: (value: string) => void
-  onVideo: (value: string) => void
   onSave: () => void
   onCancel: () => void
 }) {
   return (
     <>
-      {mode === "quote" ? (
-        <textarea
-          className={styles.field}
-          placeholder="write a little something"
-          value={quote}
-          onChange={(e) => onQuote(e.target.value)}
-          autoFocus
-        />
-      ) : (
-        <input
-          className={styles.field}
-          placeholder="youtube, tiktok, or instagram link"
-          value={video}
-          onChange={(e) => onVideo(e.target.value)}
-          autoFocus
-          inputMode="url"
-          autoCapitalize="off"
-          autoCorrect="off"
-        />
-      )}
+      <textarea
+        className={styles.field}
+        placeholder="write a little something"
+        value={quote}
+        onChange={(e) => onQuote(e.target.value)}
+        autoFocus
+      />
       {error && <p style={{ color: "var(--dream-pink-dim)" }}>{error}</p>}
       <TextBtn dim onClick={onCancel}>
         nevermind
       </TextBtn>
-      <TextBtn forest onClick={onSave} disabled={mode === "quote" ? !quote.trim() : !video.trim()}>
+      <TextBtn forest onClick={onSave} disabled={!quote.trim()}>
         {saveLabel}
       </TextBtn>
     </>
@@ -503,32 +483,26 @@ export function ComposeDreamScreen({
   mine,
   addMode,
   quote,
-  video,
   busy,
   error,
   addError,
   onBack,
   onAddImage,
   onChooseQuote,
-  onChooseVideo,
   onQuote,
-  onVideo,
   onSaveAdd,
   onCancelAdd,
 }: {
   mine?: boolean
-  addMode: "quote" | "video" | null
+  addMode: "quote" | null
   quote: string
-  video: string
   busy?: boolean
   error?: string
   addError?: string
   onBack: () => void
   onAddImage: () => void
   onChooseQuote: () => void
-  onChooseVideo: () => void
   onQuote: (value: string) => void
-  onVideo: (value: string) => void
   onSaveAdd: () => void
   onCancelAdd: () => void
 }) {
@@ -543,13 +517,10 @@ export function ComposeDreamScreen({
           ? "the last thing you see before you go to bed."
           : "it'll be the last thing they see before they go to bed"}
       </p>
-      {addMode ? (
+      {addMode === "quote" ? (
         <AddFields
-          mode={addMode}
           quote={quote}
-          video={video}
           onQuote={onQuote}
-          onVideo={onVideo}
           error={addError}
           saveLabel={mine ? "set" : "send"}
           onSave={onSaveAdd}
@@ -562,9 +533,6 @@ export function ComposeDreamScreen({
           </TextBtn>
           <TextBtn onClick={onChooseQuote} disabled={busy}>
             add a quote
-          </TextBtn>
-          <TextBtn onClick={onChooseVideo} disabled={busy}>
-            add a video link
           </TextBtn>
           {error && <p style={{ color: "var(--dream-pink-dim)" }}>{error}</p>}
         </>
@@ -613,6 +581,18 @@ export function BedtimeGateScreen({
   )
 }
 
+function LinkedText({ text }: { text: string }) {
+  return linkParts(text).map((part, index) =>
+    part.kind === "link" ? (
+      <a key={index} href={part.value} target="_blank" rel="noreferrer">
+        {part.value}
+      </a>
+    ) : (
+      <span key={index}>{part.value}</span>
+    ),
+  )
+}
+
 export function RevealScreen({
   item,
   fromName,
@@ -626,12 +606,20 @@ export function RevealScreen({
     <Screen night>
       {fromName && <p style={{ color: "var(--dream-forest-soft)" }}>from {fromName}</p>}
       {!item && <p>nothing tonight.</p>}
-      {item?.kind === "quote" && <p>{item.quote}</p>}
+      {item?.kind === "quote" && item.quote && (
+        <p className={styles.quote}>
+          <LinkedText text={item.quote} />
+        </p>
+      )}
       {item?.kind === "image" && item.imageUrl && (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={item.imageUrl} alt="" className={styles.thumb} />
       )}
-      {item?.kind === "video" && item.videoUrl && <VideoEmbed url={item.videoUrl} variant="full" />}
+      {item?.kind === "video" && item.videoUrl && (
+        <p className={styles.quote}>
+          <LinkedText text={item.videoUrl} />
+        </p>
+      )}
       <TextBtn dim onClick={onGoodnight}>
         goodnight
       </TextBtn>

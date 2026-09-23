@@ -194,13 +194,10 @@ const SCREENS: BoardScreen[] = [
         mine
         addMode={null}
         quote=""
-        video=""
         onBack={noop}
         onAddImage={noop}
         onChooseQuote={noop}
-        onChooseVideo={noop}
         onQuote={noop}
-        onVideo={noop}
         onSaveAdd={noop}
         onCancelAdd={noop}
       />
@@ -213,13 +210,10 @@ const SCREENS: BoardScreen[] = [
       <ComposeDreamScreen
         addMode={null}
         quote=""
-        video=""
         onBack={noop}
         onAddImage={noop}
         onChooseQuote={noop}
-        onChooseVideo={noop}
         onQuote={noop}
-        onVideo={noop}
         onSaveAdd={noop}
         onCancelAdd={noop}
       />
