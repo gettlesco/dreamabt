@@ -7,11 +7,17 @@ on:
 
 jobs:
   tick:
-    if: ${{ secrets.CRON_SECRET != '' && secrets.DREAM_PUSH_URL != '' }}
     runs-on: ubuntu-latest
     steps:
       - name: ping bedtime tick
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          DREAM_PUSH_URL: ${{ secrets.DREAM_PUSH_URL }}
         run: |
+          if [ -z "$CRON_SECRET" ] || [ -z "$DREAM_PUSH_URL" ]; then
+            echo "CRON_SECRET or DREAM_PUSH_URL is unset; skipping tick."
+            exit 0
+          fi
           curl -fsS -X POST \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
-            "${{ secrets.DREAM_PUSH_URL }}/api/dream/push/tick"
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            "${DREAM_PUSH_URL}/api/dream/push/tick"
