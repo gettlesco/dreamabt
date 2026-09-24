@@ -80,7 +80,7 @@ const SCREENS: BoardScreen[] = [
     title: "private key confirm",
     node: (
       <PrivateKeyConfirmScreen
-        picked={["🌸", "🩷", "🐸"]}
+        picked={["🌸", "🩷", "🐢"]}
         onContinue={noop}
         onBack={noop}
       />
@@ -95,34 +95,6 @@ const SCREENS: BoardScreen[] = [
         onBedtime={noop}
         notiLabel="turn on notis"
         notiHint="you will get a noti at this time."
-        onNotis={noop}
-        onContinue={noop}
-      />
-    ),
-  },
-  {
-    id: "onboarding-safari",
-    title: "onboarding · safari",
-    node: (
-      <OnboardingScreen
-        bedtime={DEFAULT_BEDTIME}
-        onBedtime={noop}
-        notiLabel="add to home screen"
-        notiHint="add to home screen, then turn on notis."
-        onNotis={noop}
-        onContinue={noop}
-      />
-    ),
-  },
-  {
-    id: "onboarding-other",
-    title: "onboarding · not safari",
-    node: (
-      <OnboardingScreen
-        bedtime={DEFAULT_BEDTIME}
-        onBedtime={noop}
-        notiLabel="open in safari"
-        notiHint="open this in safari to install."
         onNotis={noop}
         onContinue={noop}
       />

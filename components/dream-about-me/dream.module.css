@@ -171,10 +171,10 @@
 .box > .emojiGrid {
   --emoji-cell: 1.12em;
   display: grid;
-  grid-template-columns: repeat(9, var(--emoji-cell));
+  grid-template-columns: repeat(7, var(--emoji-cell));
   grid-auto-rows: var(--emoji-cell);
   gap: 0;
-  width: calc(9 * var(--emoji-cell));
+  width: calc(7 * var(--emoji-cell));
   margin: 0.08em auto;
   align-content: start;
   justify-content: center;
@@ -214,6 +214,40 @@
   text-align: right;
 }
 
+.lightsOut {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: #000;
+}
+
+.lightsEscape {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  z-index: 41;
+  width: 5.5rem;
+  height: 5.5rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: transparent;
+  appearance: none;
+  cursor: pointer;
+  outline: none;
+  opacity: 1;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.lightsEscape:hover,
+.lightsEscape:focus,
+.lightsEscape:focus-visible {
+  outline: none;
+  background: transparent;
+  opacity: 1;
+}
+
 .shell.preview {
   min-height: 0;
   width: 22.5rem;
@@ -249,6 +283,56 @@
   padding-top: 2.5rem;
 }
 
-.shell.lab .box {
-  max-width: min(22em, calc(100vw - 2.5rem));
+.shell.lab .btn {
+  transition: none;
+}
+
+.labBoard {
+  width: max-content;
+  max-width: calc(100vw - 2.5rem);
+}
+
+.labReset {
+  width: auto;
+  margin: 0 0 0.85em;
+  font-size: 0.48em;
+  color: var(--dream-pink-dim);
+}
+
+.labCols {
+  display: flex;
+  align-items: flex-start;
+  gap: 2.2em;
+}
+
+.labCol {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35em;
+}
+
+.labLabel {
+  margin: 0;
+  font-size: 0.62em;
+  color: var(--dream-pink-dim);
+}
+
+.labShuffle {
+  width: auto;
+  margin: 0.2em 0 0;
+  font-size: 0.48em;
+  color: var(--dream-pink-dim);
+}
+
+.shell.lab .emojiGrid {
+  --emoji-cell: 1.12em;
+  display: grid;
+  grid-template-columns: repeat(7, var(--emoji-cell));
+  grid-auto-rows: var(--emoji-cell);
+  gap: 0;
+  width: calc(7 * var(--emoji-cell));
+  margin: 0.08em auto;
+  align-content: start;
+  justify-content: center;
 }

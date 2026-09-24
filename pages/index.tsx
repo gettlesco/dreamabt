@@ -13,7 +13,7 @@ export default function DreamPage() {
         <meta name="theme-color" content="#3a1219" />
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
       </Head>
-      <div style={{ background: "#3a1219", color: "#f2b8c4", minHeight: "100dvh" }}>
+      <div data-dream-root="" style={{ background: "#3a1219", color: "#f2b8c4", minHeight: "100dvh" }}>
         <DreamAboutMeApp />
       </div>
     </>

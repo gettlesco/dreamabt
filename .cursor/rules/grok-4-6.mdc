@@ -1,0 +1,14 @@
+---
+description: Use Grok 4.6 instead of Grok 4.7 until September 26, 2026
+alwaysApply: true
+---
+
+# Grok 4.6 pin
+
+This preference expires at the end of Saturday, September 26, 2026 (America/New_York). After that, ignore this rule.
+
+While it is in effect:
+
+- When the model is Grok, use Grok 4.6 (`cursor-grok-4.6-high-fast`). Do not switch that choice to Grok 4.7.
+- Leave every other model family as chosen. Claude, GPT, Gemini, Composer, and any explicit non-Grok request stay unchanged.
+- If the user names a specific model, follow that request.

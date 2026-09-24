@@ -1,52 +1,5 @@
 export const DREAM_VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY?.trim() || ""
 
-export function isStandaloneDisplay(): boolean {
-  if (typeof window === "undefined") return false
-  const standalone = window.matchMedia("(display-mode: standalone)").matches
-  const iosStandalone = "standalone" in window.navigator && Boolean((window.navigator as Navigator & { standalone?: boolean }).standalone)
-  return standalone || iosStandalone
-}
-
-export function isIosDevice(): boolean {
-  if (typeof navigator === "undefined") return false
-  return /iphone|ipad|ipod/i.test(navigator.userAgent)
-}
-
-const IOS_NOT_SAFARI =
-  /CriOS|FxiOS|EdgiOS|OPiOS|DuckDuckGo|GSA\/|Brave|Firefox|FBAN|FBAV|Instagram|Line\/|Twitter|TikTok|Snapchat|LinkedInApp|WhatsApp/i
-
-export type IosWebContext = "standalone" | "safari" | "other"
-
-export function isIosSafari(): boolean {
-  if (typeof navigator === "undefined" || !isIosDevice()) return false
-  const ua = navigator.userAgent
-  if (IOS_NOT_SAFARI.test(ua)) return false
-  if (!/Safari\//i.test(ua)) return false
-  return "standalone" in navigator
-}
-
-/** Where an iPhone opened the page. null on Android/desktop. */
-export function iosWebContext(): IosWebContext | null {
-  if (typeof window === "undefined" || !isIosDevice()) {
-    return isStandaloneDisplay() ? "standalone" : null
-  }
-  if (isStandaloneDisplay()) return "standalone"
-  if (isIosSafari()) return "safari"
-  return "other"
-}
-
-export function onboardingNotiHint(ctx: IosWebContext | null): string {
-  if (ctx === "other") return "open this in safari to install."
-  if (ctx === "safari") return "add to home screen, then turn on notis."
-  return "you will get a noti at this time."
-}
-
-export function onboardingNotiLabel(ctx: IosWebContext | null): string {
-  if (ctx === "other") return "open in safari"
-  if (ctx === "safari") return "add to home screen"
-  return "turn on notis"
-}
-
 export function pushSupported(): boolean {
   return (
     typeof window !== "undefined" &&

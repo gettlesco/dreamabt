@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react"
+import { createPortal } from "react-dom"
 import { useRouter } from "next/router"
 import { DEFAULT_BEDTIME, newId, type DreamItem, type PendingDream, type Person } from "@/lib/dream-about-me"
-import { PRIVATE_KEY_LENGTH, displayName } from "@/lib/dream-auth"
+import { PRIVATE_KEY_LENGTH, displayName, isCuratedEmoji } from "@/lib/dream-auth"
 import {
   persistDreamProfile,
   persistPushSubscription,
@@ -24,15 +25,11 @@ import {
   setSoloDream,
 } from "@/lib/dream-social"
 import {
-  iosWebContext,
   localTimeZone,
-  onboardingNotiHint,
-  onboardingNotiLabel,
   pushSupported,
   registerDreamWorker,
   showDreamNotification,
   subscribeDreamPush,
-  type IosWebContext,
 } from "@/lib/dream-pwa"
 import {
   AcceptInviteScreen,
@@ -74,6 +71,8 @@ type AuthMode = "new" | "return"
 
 type AddMode = "quote" | null
 
+const LIGHTS_OUT_MS = 10 * 60 * 1000
+
 export function DreamAboutMeApp() {
   const router = useRouter()
   const fileRef = useRef<HTMLInputElement>(null)
@@ -86,7 +85,8 @@ export function DreamAboutMeApp() {
   const [busy, setBusy] = useState(false)
   const [bedtime, setBedtime] = useState(DEFAULT_BEDTIME)
   const [notiLabel, setNotiLabel] = useState("turn on notis")
-  const [installCtx, setInstallCtx] = useState<IosWebContext | null>(null)
+  const [lightsOut, setLightsOut] = useState(false)
+  const lightsOutUntil = useRef<number | null>(null)
   const [people, setPeople] = useState<Person[]>([])
   const [streak, setStreak] = useState(0)
   const [addMode, setAddMode] = useState<AddMode>(null)
@@ -131,14 +131,66 @@ export function DreamAboutMeApp() {
   }, [dreamCode])
 
   useEffect(() => {
-    const ctx = iosWebContext()
-    setInstallCtx(ctx)
     if (typeof Notification !== "undefined" && Notification.permission === "granted") {
       setNotiLabel("notis on")
       return
     }
-    if (screen === "onboarding" || screen === "home") setNotiLabel(onboardingNotiLabel(ctx))
+    if (screen === "onboarding" || screen === "home") setNotiLabel("turn on notis")
   }, [screen])
+
+  function endLightsOut() {
+    lightsOutUntil.current = null
+    setLightsOut(false)
+  }
+
+  function beginLightsOut() {
+    lightsOutUntil.current = Date.now() + LIGHTS_OUT_MS
+    setLightsOut(true)
+    setScreen("home")
+  }
+
+  useEffect(() => {
+    if (!lightsOut) return
+    const html = document.documentElement
+    const body = document.body
+    const parent = html.querySelector("[data-dream-root]")
+    const themes = document.querySelectorAll('meta[name="theme-color"]')
+    const prevHtml = html.style.background
+    const prevBody = body.style.background
+    const prevParent = parent instanceof HTMLElement ? parent.style.background : ""
+    const prevThemes = Array.from(themes).map((node) => node.getAttribute("content"))
+    html.style.background = "#000"
+    body.style.background = "#000"
+    if (parent instanceof HTMLElement) parent.style.background = "#000"
+    themes.forEach((node) => node.setAttribute("content", "#000"))
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
+    return () => {
+      html.style.background = prevHtml
+      body.style.background = prevBody
+      if (parent instanceof HTMLElement) parent.style.background = prevParent
+      themes.forEach((node, index) => {
+        const prev = prevThemes[index]
+        if (prev) node.setAttribute("content", prev)
+      })
+    }
+  }, [lightsOut])
+
+  useEffect(() => {
+    if (!lightsOut || lightsOutUntil.current == null) return
+    const tick = () => {
+      if (lightsOutUntil.current == null || Date.now() >= lightsOutUntil.current) endLightsOut()
+    }
+    const remaining = Math.max(lightsOutUntil.current - Date.now(), 0)
+    const id = window.setTimeout(tick, remaining)
+    const onVisible = () => {
+      if (document.visibilityState === "visible") tick()
+    }
+    document.addEventListener("visibilitychange", onVisible)
+    return () => {
+      window.clearTimeout(id)
+      document.removeEventListener("visibilitychange", onVisible)
+    }
+  }, [lightsOut])
 
   useEffect(() => {
     if (!router.isReady) return
@@ -295,16 +347,6 @@ export function DreamAboutMeApp() {
   }
 
   async function requestNotis() {
-    const ctx = iosWebContext()
-    setInstallCtx(ctx)
-    if (ctx === "other") {
-      setNotiLabel("share / ••• → open in safari")
-      return
-    }
-    if (ctx === "safari") {
-      setNotiLabel("share → add to home screen")
-      return
-    }
     if (typeof window === "undefined" || !("Notification" in window)) {
       setNotiLabel("notis aren't available")
       return
@@ -366,7 +408,7 @@ export function DreamAboutMeApp() {
     try {
       const ok = sendTo === "me" ? await setSoloDream(item) : await sendDreamItem(item, sendTo.id)
       if (!ok) {
-        setSendError("that didn't work.")
+        setSendError("hey try again")
         return
       }
       if (sendTo !== "me") {
@@ -376,7 +418,7 @@ export function DreamAboutMeApp() {
       }
       setScreen("sent")
     } catch {
-      setSendError("that didn't work.")
+      setSendError("hey try again")
     } finally {
       sendLock.current = false
       setSending(false)
@@ -392,7 +434,7 @@ export function DreamAboutMeApp() {
     setBusy(false)
     if (findIgnore.current) return
     if (!found) {
-      setSendError("that didn't work.")
+      setSendError("hey try again")
       return
     }
     setSendTo({ id: found.id, name: found.name, status: "connected" })
@@ -411,7 +453,7 @@ export function DreamAboutMeApp() {
     setBusy(false)
     if (emojiIgnore.current) return
     if (!saved) {
-      setEmojiError("that didn't work.")
+      setEmojiError("hey try again")
       return
     }
     setMyEmoji(saved)
@@ -460,7 +502,7 @@ export function DreamAboutMeApp() {
     setInviteError("")
     const ok = await acceptInviteLink(inviteFromId)
     if (!ok) {
-      setInviteError("that didn't work.")
+      setInviteError("hey try again")
       return
     }
     setPeople(await loadPeople())
@@ -480,7 +522,7 @@ export function DreamAboutMeApp() {
   const night = screen === "bedtime" || screen === "reveal"
 
   return (
-    <div className={`${styles.shell} ${night ? styles.shellNight : ""}`}>
+    <div className={`${styles.shell} ${night ? styles.shellNight : ""}`} inert={lightsOut}>
       <input
         ref={fileRef}
         type="file"
@@ -560,7 +602,7 @@ export function DreamAboutMeApp() {
           bedtime={bedtime}
           onBedtime={setBedtime}
           notiLabel={notiLabel}
-          notiHint={onboardingNotiHint(installCtx)}
+          notiHint="you will get a noti at this time."
           onNotis={requestNotis}
           onContinue={() => {
             void persistDreamProfile({ bedtime, timezone: localTimeZone() })
@@ -653,7 +695,11 @@ export function DreamAboutMeApp() {
       {screen === "emoji" && (
         <EmojiScreen
           title="your emoji"
-          hint="someone needs this to send you a dream."
+          hint={
+            myEmoji && !isCuratedEmoji(myEmoji)
+              ? "this one got cut. pick a new one."
+              : "someone needs this to send you a dream."
+          }
           current={myEmoji}
           busy={busy}
           error={emojiError}
@@ -715,12 +761,28 @@ export function DreamAboutMeApp() {
         <RevealScreen
           item={revealed?.item ?? null}
           fromName={revealed?.fromName}
-          onGoodnight={() => setScreen("home")}
+          onGoodnight={beginLightsOut}
         />
       )}
-      <button type="button" className={`${styles.btn} ${styles.logout}`} onClick={() => void logOut()}>
-        log out
-      </button>
+      {!lightsOut && (
+        <button type="button" className={`${styles.btn} ${styles.logout}`} onClick={() => void logOut()}>
+          log out
+        </button>
+      )}
+      {lightsOut &&
+        createPortal(
+          <>
+            <div className={styles.lightsOut} />
+            <button
+              type="button"
+              className={styles.lightsEscape}
+              tabIndex={-1}
+              aria-hidden="true"
+              onClick={endLightsOut}
+            />
+          </>,
+          document.body,
+        )}
     </div>
   )
 }
