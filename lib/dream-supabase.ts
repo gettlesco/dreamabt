@@ -90,16 +90,6 @@ export async function persistPushSubscription(
   const { data: sessionData } = await supabase.auth.getSession()
   if (!sessionData.session) return false
 
-  const row = {
-    user_id: sessionData.session.user.id,
-    endpoint,
-    p256dh,
-    auth,
-    timezone,
-  }
-  const direct = await supabase.from("push_subscriptions").upsert(row, { onConflict: "endpoint" })
-  if (!direct.error) return true
-
   try {
     const res = await fetch("/api/dream/push/subscribe", {
       method: "POST",

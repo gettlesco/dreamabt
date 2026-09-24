@@ -93,7 +93,7 @@ export async function expireDreams() {
   return rows.length
 }
 
-export async function tickDreamPushes(windowMinutes = 15) {
+export async function tickDreamPushes() {
   const expired = await expireDreams()
   const supabase = serviceClient()
   if (!supabase || !applyVapid()) {
@@ -112,8 +112,6 @@ export async function tickDreamPushes(windowMinutes = 15) {
   const userIds = [...new Set(rows.map((row) => row.user_id))]
   const bedtimes = new Map<string, string | null>()
   const profileZones = new Map<string, string>()
-  const openNights = new Map<string, Set<string>>()
-  const soloUsers = new Set<string>()
   if (userIds.length) {
     const profiles = await supabase.from("profiles").select("id, bedtime, timezone").in("id", userIds)
     for (const profile of profiles.data || []) {
@@ -122,20 +120,6 @@ export async function tickDreamPushes(windowMinutes = 15) {
       const zone = typeof profile.timezone === "string" ? profile.timezone.trim() : ""
       if (zone) profileZones.set(id, zone)
     }
-    const { data: dreams } = await supabase
-      .from("dreams")
-      .select("recipient_id, night_date, revealed_at, expires_at")
-      .in("recipient_id", userIds)
-      .is("revealed_at", null)
-      .gt("expires_at", new Date().toISOString())
-    for (const dream of dreams || []) {
-      const id = dream.recipient_id as string
-      const nights = openNights.get(id) ?? new Set<string>()
-      nights.add(dream.night_date as string)
-      openNights.set(id, nights)
-    }
-    const { data: solos } = await supabase.from("solo_dreams").select("user_id").in("user_id", userIds)
-    for (const solo of solos || []) soloUsers.add(solo.user_id as string)
   }
 
   let sent = 0
@@ -146,13 +130,8 @@ export async function tickDreamPushes(windowMinutes = 15) {
       skipped += 1
       continue
     }
-    const night = dreamNightDate(timeZone)
-    if (!openNights.get(row.user_id)?.has(night) && !soloUsers.has(row.user_id)) {
-      skipped += 1
-      continue
-    }
-    const { due, dateKey } = bedtimeDue(bedtimes.get(row.user_id) ?? null, timeZone, windowMinutes)
-    if (!due || row.last_notified_on === night || row.last_notified_on === dateKey) {
+    const { due, dateKey } = bedtimeDue(bedtimes.get(row.user_id) ?? null, timeZone)
+    if (!due || row.last_notified_on === dateKey) {
       skipped += 1
       continue
     }
@@ -163,7 +142,7 @@ export async function tickDreamPushes(windowMinutes = 15) {
       })
       await supabase
         .from("push_subscriptions")
-        .update({ last_notified_on: night })
+        .update({ last_notified_on: dateKey })
         .eq("id", row.id)
       sent += 1
     } catch (err) {

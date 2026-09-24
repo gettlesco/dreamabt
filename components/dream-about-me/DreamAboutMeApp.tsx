@@ -161,8 +161,9 @@ export function DreamAboutMeApp() {
             if (!cancelled) setPeople(next)
           })
           if (typeof Notification !== "undefined" && Notification.permission === "granted") {
-            setNotiLabel("notis on")
-            void syncPushSubscription()
+            void syncPushSubscription().then((ok) => {
+              if (!cancelled) setNotiLabel(ok ? "notis on" : "turn on notis")
+            })
           }
         }
         if (invite != null) {
@@ -286,10 +287,11 @@ export function DreamAboutMeApp() {
 
   async function syncPushSubscription() {
     const registration = await registerDreamWorker()
-    if (!registration) return
+    if (!registration) return false
     await navigator.serviceWorker.ready
     const subscription = await subscribeDreamPush(registration)
-    if (subscription) await persistPushSubscription(subscription, localTimeZone())
+    if (!subscription) return false
+    return persistPushSubscription(subscription, localTimeZone())
   }
 
   async function requestNotis() {
@@ -316,14 +318,24 @@ export function DreamAboutMeApp() {
       setNotiLabel(perm === "denied" ? "notis blocked" : "turn on notis")
       return
     }
-    const registration = await registerDreamWorker()
-    if (registration) {
+    try {
+      const registration = await registerDreamWorker()
+      if (!registration) {
+        setNotiLabel("notis aren't available")
+        return
+      }
       await navigator.serviceWorker.ready
-      await syncPushSubscription()
+      const saved = await syncPushSubscription()
+      if (!saved) {
+        setNotiLabel("notis didn't save")
+        return
+      }
       await showDreamNotification(registration)
+      setNotiLabel("notis on")
+      void persistDreamProfile({ timezone: localTimeZone() })
+    } catch {
+      setNotiLabel("notis didn't save")
     }
-    setNotiLabel("notis on")
-    void persistDreamProfile({ timezone: localTimeZone() })
   }
 
   function openImagePicker() {

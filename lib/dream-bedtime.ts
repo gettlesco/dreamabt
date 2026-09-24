@@ -68,16 +68,24 @@ export function zonedClock(timeZone: string, at = new Date()) {
   }
 }
 
+/**
+ * True from the local bedtime until the 4:47 AM dream-night reset.
+ * One send per night is enforced by last_notified_on, so a late cron
+ * still delivers instead of missing a 15-minute slot.
+ */
 export function bedtimeDue(
   bedtime: string | null,
   timeZone: string,
-  windowMinutes = 15,
   at = new Date(),
 ): { due: boolean; dateKey: string } {
+  const night = dreamNightDate(timeZone, at)
   const clock = zonedClock(timeZone, at)
   const parsed = bedtime ? parseBedtimeLabel(bedtime) : null
-  if (!parsed) return { due: false, dateKey: clock.dateKey }
+  if (!parsed) return { due: false, dateKey: night }
   const target = parsed.hour * 60 + parsed.minute
-  const delta = clock.minutes - target
-  return { due: delta >= 0 && delta < windowMinutes, dateKey: clock.dateKey }
+  const pastBedtime =
+    target >= DREAM_NIGHT_RESET_MINUTES
+      ? clock.minutes >= target || clock.minutes < DREAM_NIGHT_RESET_MINUTES
+      : clock.minutes >= target && clock.minutes < DREAM_NIGHT_RESET_MINUTES
+  return { due: pastBedtime, dateKey: night }
 }

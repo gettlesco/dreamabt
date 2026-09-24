@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
+import { isValidTimeZone } from "@/lib/dream-bedtime"
 import { createDreamServerClient } from "@/lib/dream-supabase"
 
 export const runtime = "nodejs"
@@ -31,35 +32,40 @@ export async function POST(request: Request) {
   const endpoint = typeof raw.endpoint === "string" ? raw.endpoint.trim() : ""
   const p256dh = typeof raw.keys?.p256dh === "string" ? raw.keys.p256dh.trim() : ""
   const auth = typeof raw.keys?.auth === "string" ? raw.keys.auth.trim() : ""
-  const timezone = typeof raw.timezone === "string" && raw.timezone.trim() ? raw.timezone.trim() : "UTC"
+  const rawZone = typeof raw.timezone === "string" ? raw.timezone.trim() : ""
+  const timezone = rawZone && isValidTimeZone(rawZone) ? rawZone : "UTC"
   if (!endpoint || !p256dh || !auth) {
     return NextResponse.json({ error: "bad subscription" }, { status: 400 })
   }
 
-  const config = {
-    url: process.env.NEXT_PUBLIC_SUPABASE_URL?.trim(),
-    anonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim(),
-  }
-  if (!config.url || !config.anonKey) {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim()
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()
+  if (!url || !serviceKey) {
     return NextResponse.json({ error: "not configured" }, { status: 503 })
   }
 
-  const supabase = createClient(config.url, config.anonKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-    global: { headers: { Authorization: `Bearer ${accessToken}` } },
-  })
   const user = await createDreamServerClient().auth.getUser(accessToken)
   if (user.error || !user.data.user) {
     return NextResponse.json({ error: "no session" }, { status: 401 })
   }
 
-  const { error } = await supabase.from("push_subscriptions").upsert(
+  const admin = createClient(url, serviceKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  })
+  const existing = await admin
+    .from("push_subscriptions")
+    .select("user_id, last_notified_on")
+    .eq("endpoint", endpoint)
+    .maybeSingle()
+  const sameOwner = existing.data?.user_id === user.data.user.id
+  const { error } = await admin.from("push_subscriptions").upsert(
     {
       user_id: user.data.user.id,
       endpoint,
       p256dh,
       auth,
       timezone,
+      last_notified_on: sameOwner ? existing.data?.last_notified_on ?? null : null,
     },
     { onConflict: "endpoint" },
   )
